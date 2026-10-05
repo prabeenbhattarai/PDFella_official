@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Box, EditorObject, PageRef } from "@/lib/editor/model";
-import { displaySize, matchFont } from "@/lib/editor/model";
+import { Copy, PencilLine, Trash2, Wand2 } from "lucide-react";
+import type { Box, EditorObject, PageRef, TextEditObject } from "@/lib/editor/model";
+import { displaySize, isTextLike } from "@/lib/editor/model";
 import { useEditor, findObject, lineBox, type ToolId } from "@/lib/editor/store";
-import { getTextRuns, resolveFontName, type TextRun } from "@/lib/pdf/docCache";
+import { getTextRuns, type TextRun } from "@/lib/pdf/docCache";
 import { baselineOffset, intersects, normalizeBox, rotatePt, type Pt } from "@/lib/pdf/geometry";
+import { detectOriginalStyle, styleDiff } from "@/lib/editor/detect-style";
+import { ensureStyleFonts, fontMetrics } from "@/lib/fonts/loader";
+import { toast } from "@/components/ui/toast";
+import { StyleChoice, applyOriginalStyle } from "./style-choice";
 import { subBox } from "@/lib/editor/search";
 import { lineGroup, wordAt } from "@/lib/editor/text-lines";
 import { uid } from "@/lib/utils";
@@ -17,7 +22,8 @@ type Gesture =
   | { type: "line"; tool: ToolId; start: Pt; cur: Pt }
   | { type: "ink"; points: Pt[] }
   | { type: "erase" }
-  | { type: "move"; start: Pt; origs: EditorObject[]; committed: boolean }
+  | { type: "move"; start: Pt; origs: EditorObject[]; committed: boolean; reclick?: string }
+  | { type: "marquee"; start: Pt; cur: Pt; base: string[] }
   | { type: "resize"; id: string; hx: number; hy: number; orig: EditorObject; committed: boolean }
   | { type: "rotate"; id: string; orig: EditorObject; committed: boolean }
   | { type: "lineEnd"; id: string; which: 1 | 2; committed: boolean };
@@ -26,6 +32,17 @@ const MARKUP: ToolId[] = ["highlight", "underline", "strike", "redact"];
 const ERASABLE = new Set(["ink", "line", "arrow", "rect", "ellipse", "cloud", "polygon", "check", "cross", "star", "dot", "highlight", "underline", "strike"]);
 const HANDLES: [number, number][] = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
 const KEEP_ASPECT = new Set(["image", "signature", "stamp", "check", "cross", "star", "note"]);
+
+/**
+ * With a creation tool active, clicking an existing object of a kind that tool makes
+ * selects it (to move, resize or delete) instead of stacking a new one on top.
+ */
+export const PICKS: Partial<Record<ToolId, string[]>> = {
+  whiteout: ["whiteout"], highlight: ["highlight"], underline: ["underline"], strike: ["strike"], redact: ["redact"],
+  rect: ["rect"], ellipse: ["ellipse"], polygon: ["polygon"], cloud: ["cloud"], line: ["line", "arrow"], arrow: ["line", "arrow"],
+  stamp: ["stamp"], check: ["check"], cross: ["cross"], star: ["star"], note: ["note"], link: ["link"], field: ["field"],
+  text: ["text"], editText: ["textEdit", "text"],
+};
 
 export interface ColorSampler { (box: Box): { bg: string; fg: string } }
 
@@ -212,21 +229,24 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     const existing = (s.objects[page.id] ?? []).find((o) => o.kind === "textEdit" && intersects(o.original.box, { x: run.box.x + 1, y: run.box.y + 1, w: Math.max(1, run.box.w - 2), h: Math.max(1, run.box.h - 2) }));
     if (existing) { s.select([existing.id]); s.setEditing(existing.id); return; }
 
-    const fontName = await resolveFontName(page, run.fontName);
-    const style = matchFont(fontName, run.fontFamily);
-    const size = Math.round(run.fontSize * 2) / 2;
     const { bg, fg } = sample(box);
+    const { style, fontMatch } = await detectOriginalStyle({ page, run, group, color: fg, assets: s.assets, addAsset: s.addAsset });
+    const assets = useEditor.getState().assets;
+    await ensureStyleFonts(style, assets);
     const lineHeight = 1.2;
-    const baselineY = run.box.y + run.fontSize * 0.88;
-    const obj: EditorObject = {
+    const baselineY = run.origin[1];
+    const obj: TextEditObject = {
       id: uid("o"), kind: "textEdit", rotation: 0, opacity: 1,
-      ...s.style.text, ...style, size, color: fg, lineHeight, background: null, underline: false, letterSpacing: 0, align: "left",
-      text, x: box.x, y: baselineY - baselineOffset(style.font, size, lineHeight, 0), w: box.w + 8, h: size * lineHeight,
-      original: { text, box, fontName, pdf: run.pdf, pdfRuns: group.map((r) => r.pdf) }, cover: bg, strategy: "remove",
+      ...s.style.text, ...style, lineHeight, background: null, underline: false, align: "left",
+      text, x: group[0].origin[0], y: baselineY - baselineOffset(fontMetrics(style), style.size, lineHeight, 0), w: box.w + 8, h: style.size * lineHeight,
+      original: { text, box, fontName: fontMatch.name, pdf: run.pdf, pdfRuns: group.map((r) => r.pdf) }, cover: bg, strategy: "remove",
+      originalStyle: style, fontMatch,
     };
+    if (!style.fontFallback) delete obj.fontFallback;
     s.addObject(page.id, obj);
     s.setEditing(obj.id, selection);
     s.setCurrentPage(index);
+    if (fontMatch.kind === "similar") toast.info(`“${fontMatch.name}” isn't included in this PDF`, "We're using the closest match. You can pick another font in the panel on the right.");
   };
 
   /** Double-click on PDF text with the Select tool edits it in place. */
@@ -266,23 +286,52 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     // Placing an image/signature takes priority over selection (the tool is "select" while placing).
     if (pending) { createAtPoint(tool, p); return; }
 
+    // Clicking an existing object of the kind the current tool makes selects it.
+    const picked = target?.dataset.objId ? objects.find((o) => o.id === target.dataset.objId) : undefined;
+    if (tool !== "select" && picked && PICKS[tool]?.includes(picked.kind)) {
+      if (tool === "editText" || tool === "text") {
+        if (s.editingId === picked.id) return;
+        // Keep the browser's default mousedown from moving focus away from the new edit box.
+        e.preventDefault();
+        s.select([picked.id]);
+        s.setEditing(picked.id);
+        return;
+      }
+      s.setTool("select");
+      s.select([picked.id]);
+      if (picked.locked) return;
+      ref.current!.setPointerCapture(e.pointerId);
+      set({ type: "move", start: p, origs: [picked], committed: false });
+      return;
+    }
+
     if (tool === "select") {
       if (target?.dataset.objId) {
         const id = target.dataset.objId;
         const obj = objects.find((o) => o.id === id);
         if (!obj) return;
+        const wasOnlySelected = s.selection.length === 1 && s.selection[0] === id;
         let sel = s.selection;
         if (e.shiftKey) sel = sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id];
         else if (!sel.includes(id)) sel = [id];
         s.select(sel);
-        if (e.detail === 2 && (obj.kind === "text" || obj.kind === "textEdit")) { s.setEditing(id); return; }
         if (s.editingId === id) return;
-        if (obj.locked) return;
+        // A double-click, or a second click on already-selected text, edits it (on release,
+        // so a drag still moves the box and the browser's mousedown focus can't blur the editor).
+        const reclick = isTextLike(obj) && !e.shiftKey && (e.detail >= 2 || wasOnlySelected) ? id : undefined;
+        if (obj.locked) { if (reclick) s.setEditing(reclick); return; }
         ref.current!.setPointerCapture(e.pointerId);
-        set({ type: "move", start: p, origs: objects.filter((o) => sel.includes(o.id)), committed: false });
+        set({ type: "move", start: p, origs: objects.filter((o) => sel.includes(o.id)), committed: false, reclick });
       } else {
-        s.select([]);
+        const base = e.shiftKey ? s.selection : [];
+        s.select(base);
         s.setEditing(null);
+        // Rubber-band selection (mouse/pen only: touch drags scroll the page).
+        if (e.pointerType !== "touch") {
+          e.preventDefault(); // no native drag/text selection (Firefox would cancel the pointer)
+          ref.current!.setPointerCapture(e.pointerId);
+          set({ type: "marquee", start: p, cur: p, base });
+        }
       }
       return;
     }
@@ -290,7 +339,7 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     // With the text tool, clicking existing text edits it rather than stacking a new box.
     if (tool === "text") {
       const t = document.elementsFromPoint(e.clientX, e.clientY).find((el) => (el as HTMLElement).dataset?.kind === "text") as HTMLElement | undefined;
-      if (t) { s.select([t.dataset.objId!]); s.setEditing(t.dataset.objId!); return; }
+      if (t) { e.preventDefault(); s.select([t.dataset.objId!]); s.setEditing(t.dataset.objId!); return; }
     }
     if (tool === "editText") {
       (async () => {
@@ -332,6 +381,14 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     const ensureCommit = (gg: { committed: boolean }) => { if (!gg.committed) { s.commit(); gg.committed = true; } };
     switch (g.type) {
       case "box": set({ ...g, cur: p }); break;
+      case "marquee": {
+        set({ ...g, cur: p });
+        const area = normalizeBox(g.start[0], g.start[1], p[0], p[1]);
+        if (area.w < 3 && area.h < 3) break;
+        const hits = objects.filter((o) => intersects(o, area)).map((o) => o.id);
+        s.select([...new Set([...g.base, ...hits])]);
+        break;
+      }
       case "line": {
         let cur = p;
         if (e.shiftKey) {
@@ -407,6 +464,10 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     if (!g) return;
     try { ref.current?.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     const st = useEditor.getState().style;
+    if (g.type === "move" && !g.committed && g.reclick) {
+      useEditor.getState().setEditing(g.reclick);
+      return;
+    }
     if (g.type === "box") {
       const b = normalizeBox(g.start[0], g.start[1], g.cur[0], g.cur[1]);
       const click = b.w < 4 && b.h < 4;
@@ -429,6 +490,8 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
   };
 
   const interactive = tool === "select";
+  const picks = PICKS[tool];
+  const stylePrompt = useEditor((s) => s.stylePrompt);
   const single = selection.length === 1 ? objects.find((o) => o.id === selection[0]) : undefined;
   const cursor = pending ? "copy" : tool === "select" ? (hoverRun ? "text" : "default") : tool === "hand" ? "grab" : tool === "editText" ? (hoverRun ? "text" : "default") : tool === "text" ? "text" : tool === "eraser" ? "cell" : "crosshair";
 
@@ -446,7 +509,7 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
       data-page-layer={page.id}
     >
       {objects.map((o) => (
-        <ObjectView key={o.id} obj={o} z={z} selected={selection.includes(o.id)} editing={editingId === o.id} redactPreview={redactPreview} interactive={interactive || (tool === "text" && o.kind === "text")} />
+        <ObjectView key={o.id} obj={o} z={z} selected={selection.includes(o.id)} editing={editingId === o.id} redactPreview={redactPreview} interactive={interactive || !!picks?.includes(o.kind) || editingId === o.id} />
       ))}
 
       {tool === "select" && hoverRun && (
@@ -461,6 +524,8 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
         return o ? <div key={id} className="pointer-events-none absolute outline outline-1 outline-accent" style={{ left: o.x * z, top: o.y * z, width: o.w * z, height: o.h * z, transform: o.rotation ? `rotate(${o.rotation}deg)` : undefined }} /> : null;
       })}
       {single && tool === "select" && editingId !== single.id && <SelectionHandles obj={single} z={z} />}
+      {tool === "select" && !editingId && !gesture && <QuickActions objects={objects.filter((o) => selection.includes(o.id))} z={z} />}
+      {stylePrompt && objects.some((o) => o.id === stylePrompt.id) && <StyleChoice prompt={stylePrompt} obj={objects.find((o) => o.id === stylePrompt.id) as TextEditObject} z={z} />}
 
       {gesture && <Draft g={gesture} z={z} />}
     </div>
@@ -474,7 +539,7 @@ function SelectionHandles({ obj, z }: { obj: EditorObject; z: number }) {
     return (
       <>
         {([[obj.x1, obj.y1, "p1"], [obj.x2, obj.y2, "p2"]] as const).map(([x, y, h]) => (
-          <div key={h} data-handle={h} data-for={obj.id} className="absolute size-3 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-2 border-accent bg-white shadow" style={{ left: x * z, top: y * z }} />
+          <div key={h} data-handle={h} data-for={obj.id} className="absolute size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-move rounded-full border-2 border-accent bg-white shadow before:absolute before:-inset-2 before:content-['']" style={{ left: x * z, top: y * z }} />
         ))}
       </>
     );
@@ -488,14 +553,15 @@ function SelectionHandles({ obj, z }: { obj: EditorObject; z: number }) {
           key={`${hx},${hy}`}
           data-handle={`${hx},${hy}`}
           data-for={obj.id}
-          className="pointer-events-auto absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-[3px] border-[1.5px] border-accent bg-white shadow-sm"
-          style={{ left: `${(hx + 1) * 50}%`, top: `${(hy + 1) * 50}%`, cursor: hx === 0 ? "ns-resize" : hy === 0 ? "ew-resize" : hx === hy ? "nwse-resize" : "nesw-resize" }}
+          className="pointer-events-auto absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-[3px] border-[1.5px] border-accent bg-white shadow-sm before:absolute before:-inset-1.5 before:content-['']"
+          // Text boxes keep their side handles just outside the text so clicks on words still reach the text.
+          style={{ left: isText ? `calc(${(hx + 1) * 50}% + ${hx * 5}px)` : `${(hx + 1) * 50}%`, top: `${(hy + 1) * 50}%`, cursor: hx === 0 ? "ns-resize" : hy === 0 ? "ew-resize" : hx === hy ? "nwse-resize" : "nesw-resize" }}
         />
       ))}
       {!obj.locked && obj.kind !== "note" && (
         <>
           <div className="absolute left-1/2 h-4 w-px -translate-x-1/2 bg-accent" style={{ top: -16 }} />
-          <div data-handle="rotate" data-for={obj.id} title="Rotate (Shift snaps to 15°)" className="pointer-events-auto absolute left-1/2 size-3 -translate-x-1/2 cursor-grab rounded-full border-[1.5px] border-accent bg-white shadow-sm" style={{ top: -22 }} />
+          <div data-handle="rotate" data-for={obj.id} title="Rotate (Shift snaps to 15°)" className="pointer-events-auto absolute left-1/2 size-3.5 -translate-x-1/2 cursor-grab rounded-full border-[1.5px] border-accent bg-white shadow-sm before:absolute before:-inset-2 before:content-['']" style={{ top: -23 }} />
         </>
       )}
     </div>
@@ -504,6 +570,11 @@ function SelectionHandles({ obj, z }: { obj: EditorObject; z: number }) {
 
 function Draft({ g, z }: { g: Gesture; z: number }) {
   const st = useEditor.getState().style;
+  if (g.type === "marquee") {
+    const b = normalizeBox(g.start[0], g.start[1], g.cur[0], g.cur[1]);
+    if (b.w < 3 && b.h < 3) return null;
+    return <div className="pointer-events-none absolute rounded-[2px] border border-accent bg-accent/10" style={{ left: b.x * z, top: b.y * z, width: b.w * z, height: b.h * z }} />;
+  }
   if (g.type === "box") {
     const b = normalizeBox(g.start[0], g.start[1], g.cur[0], g.cur[1]);
     const isEllipse = g.tool === "ellipse";
@@ -525,4 +596,33 @@ function Draft({ g, z }: { g: Gesture; z: number }) {
     );
   }
   return null;
+}
+
+/** Small floating toolbar above the selection: the most common actions, one click away. */
+function QuickActions({ objects, z }: { objects: EditorObject[]; z: number }) {
+  if (!objects.length) return null;
+  const s = useEditor.getState();
+  const x1 = Math.min(...objects.map((o) => o.x)), y1 = Math.min(...objects.map((o) => o.y));
+  const x2 = Math.max(...objects.map((o) => o.x + o.w)), y2 = Math.max(...objects.map((o) => o.y + o.h));
+  const one = objects.length === 1 ? objects[0] : undefined;
+  const editable = one && isTextLike(one) ? one : undefined;
+  const differs = one?.kind === "textEdit" && styleDiff(one).length > 0;
+  const above = y1 * z > 52;
+  const btn = "flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-ink-2 hover:bg-surface-2 hover:text-ink [&_svg]:size-4";
+  return (
+    <div
+      data-quick-actions
+      className="absolute z-20 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 shadow-lg animate-pop"
+      style={{ left: ((x1 + x2) / 2) * z, top: above ? y1 * z - 46 : y2 * z + 30 }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => e.stopPropagation()}
+      role="toolbar"
+      aria-label="Selection actions"
+    >
+      {editable && <button className={btn} onClick={() => s.setEditing(editable.id)}><PencilLine /> Edit</button>}
+      {differs && <button className={btn} title="Restore the font, size and colour of the original text" onClick={() => applyOriginalStyle(one as TextEditObject)}><Wand2 /> Match original</button>}
+      <button className={btn} title="Duplicate (Ctrl+D)" aria-label="Duplicate" onClick={() => s.duplicateObjects(objects.map((o) => o.id))}><Copy /></button>
+      <button className={`${btn} hover:text-danger`} title="Delete (Del)" aria-label="Delete" onClick={() => s.removeObjects(objects.map((o) => o.id))}><Trash2 /></button>
+    </div>
+  );
 }

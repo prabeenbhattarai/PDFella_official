@@ -187,8 +187,7 @@ export const FONT_METRICS = {
 } as const;
 
 /** Baseline offset of line i from the box top, matching CSS line-height layout. */
-export function baselineOffset(font: keyof typeof FONT_METRICS, size: number, lineHeight: number, i: number) {
-  const m = FONT_METRICS[font];
+export function baselineOffset(m: { ascent: number; descent: number }, size: number, lineHeight: number, i: number) {
   const lh = size * lineHeight;
   return i * lh + (lh - (m.ascent + m.descent) * size) / 2 + m.ascent * size;
 }

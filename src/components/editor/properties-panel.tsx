@@ -3,10 +3,13 @@
 import { useEffect, useState } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, Copy, Italic, Lock, Unlock, Trash2, Underline, ArrowUpToLine, ArrowDownToLine,
-  ScanText, ShieldAlert, Eye, EyeOff, Info, RotateCcw, ClipboardList, Search,
+  ScanText, ShieldAlert, Eye, EyeOff, Info, RotateCcw, ClipboardList, Search, Wand2, CheckCircle2,
 } from "lucide-react";
 import { useEditor, findObject } from "@/lib/editor/store";
-import type { EditorObject, FontFamily, TextStyle } from "@/lib/editor/model";
+import type { EditorObject, TextEditObject, TextStyle } from "@/lib/editor/model";
+import { fontDisplayName, styleDiff } from "@/lib/editor/detect-style";
+import { FontPicker } from "./font-picker";
+import { applyOriginalStyle, checkStyle } from "./style-choice";
 import { isTextLike } from "@/lib/editor/model";
 import { getDoc } from "@/lib/pdf/docCache";
 import { useSearch } from "@/lib/editor/search";
@@ -31,11 +34,7 @@ function TextControls({ value, onChange, onCommit }: { value: TextStyle; onChang
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-[1fr_76px] gap-2">
-        <Select aria-label="Font" value={value.font} onChange={(e) => ch({ font: e.target.value as FontFamily })}>
-          <option value="Helvetica">Helvetica / Arial</option>
-          <option value="Times">Times</option>
-          <option value="Courier">Courier</option>
-        </Select>
+        <FontPicker value={value} onChange={ch} />
         <Input aria-label="Font size" type="number" min={4} max={200} step={0.5} value={value.size} onChange={(e) => ch({ size: Math.max(4, Math.min(200, parseFloat(e.target.value) || 12)) })} />
       </div>
       <div className="flex gap-1">
@@ -66,12 +65,13 @@ function ObjectProps({ obj }: { obj: EditorObject }) {
   return (
     <>
       <Section title={kindLabel[obj.kind] ?? TOOL_DEFS[obj.kind as keyof typeof TOOL_DEFS]?.label ?? obj.kind}>
-        {isTextLike(obj) && <TextControls value={obj} onChange={(p) => up(p)} onCommit={commit} />}
+        {obj.kind === "textEdit" && <OriginalStyleCard obj={obj} />}
+        {isTextLike(obj) && <TextControls value={obj} onChange={(p) => { up(p); if (obj.kind === "textEdit") queueMicrotask(() => void checkStyle(obj.id)); }} onCommit={commit} />}
         {obj.kind === "textEdit" && (
           <div className="space-y-3 rounded-lg bg-surface-2 p-3 text-[13px]">
             <p className="text-ink-3">Original: <span className="text-ink-2">“{obj.original.text}”</span></p>
             <ColorPicker label="Cover colour (matches the page)" value={obj.cover} onChange={(c) => upC({ cover: c ?? "#ffffff" })} />
-            <p className="flex gap-1.5 text-xs text-ink-3"><Info className="mt-0.5 size-3.5 shrink-0" /> When you save, the original text is removed from the page and the new text is set in the closest standard font. If a PDF stores text in a way that can’t be removed safely, the original is covered instead.</p>
+            <p className="flex gap-1.5 text-xs text-ink-3"><Info className="mt-0.5 size-3.5 shrink-0" /> When you save, the original text is removed from the page and your text is written in the font shown above. If a PDF stores text in a way that can’t be removed safely, the original is covered instead.</p>
           </div>
         )}
         {(obj.kind === "rect" || obj.kind === "ellipse" || obj.kind === "cloud" || obj.kind === "polygon") && (
@@ -169,6 +169,39 @@ function ObjectProps({ obj }: { obj: EditorObject }) {
         </div>
       </Section>
     </>
+  );
+}
+
+const MATCH_TEXT = {
+  embedded: "Exact font, reused from this PDF",
+  metric: "Same design and letter widths",
+  similar: "Not in this PDF. Closest match used",
+};
+
+/** What the original text looked like, how faithfully we reproduce it, and a one-click restore. */
+function OriginalStyleCard({ obj }: { obj: TextEditObject }) {
+  if (!obj.originalStyle) return null;
+  const o = obj.originalStyle;
+  const differs = styleDiff(obj).length > 0;
+  const kind = obj.fontMatch?.kind ?? "similar";
+  return (
+    <div className="space-y-2 rounded-lg border border-border p-3 text-[13px]" data-original-style>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold tracking-wide text-ink-3 uppercase">Original style</p>
+        {differs ? (
+          <Button size="sm" variant="outline" className="h-7 px-2 text-[12px]" onClick={() => applyOriginalStyle(obj)}><Wand2 /> Match original</Button>
+        ) : (
+          <span className="flex items-center gap-1 text-[12px] font-medium text-ok"><CheckCircle2 className="size-3.5" /> Matching</span>
+        )}
+      </div>
+      <p className="text-ink-2">
+        <span className="font-medium text-ink">{obj.fontMatch?.name ?? fontDisplayName(o.font, obj)}</span> · {o.size} pt
+        <span className="ml-1.5 inline-block size-3 translate-y-0.5 rounded-sm border border-black/15" style={{ background: o.color }} title={o.color} />
+      </p>
+      <p className={cn("text-xs", kind === "similar" ? "text-warn" : "text-ink-3")}>
+        {MATCH_TEXT[kind]}{kind !== "embedded" && <> ({fontDisplayName(o.font, obj)})</>}
+      </p>
+    </div>
   );
 }
 

@@ -171,3 +171,16 @@ Every entry point (editor open/insert, every tool intake) runs `ensureUnlocked()
 
 ## 12. Editing text by double-click
 With the Select tool, hovering PDF text shows a dashed outline; double-clicking opens the whole line for editing with the clicked word selected (`src/lib/editor/text-lines.ts` groups runs on the same baseline, so sentences stored one word per operator edit as a unit, without merging separate columns). On export every run of the line is removed from the content stream.
+
+## 13. Keeping the original text style
+When an edit starts, `src/lib/editor/detect-style.ts` works out how the original text looks:
+- **Font.** If the PDF embeds the font and its glyphs map to Unicode, that exact font program is reused: stored as an asset (so autosave keeps it), shown via `FontFace`, and embedded again on save. Embedded fonts are usually subsets, so letters the PDF never used fall back word by word to a library font. Non-embedded or unusable fonts are matched by name (`src/lib/fonts/match.ts`) to a **metric-compatible** twin where one exists (Arimo for Arial, Tinos for Times New Roman, Cousine for Courier New, Carlito for Calibri, Caladea for Cambria, Gelasio for Georgia) or the closest similar design otherwise.
+- **Weight, slant, size, colour, letter spacing.** From the font flags/name, the text matrix, the rendered pixels and the run's real width.
+- **Placement.** The replacement sits on the original baseline, using the browser's own font metrics so export matches the screen.
+
+The detected look is saved as `originalStyle`. If the edited text ends up looking different (style changed in the panel, or new letters drawn in a different-looking fallback), the editor asks "Use original style" or "Keep new style" (`style-choice.tsx`). "Match original" is always available in the panel and the selection toolbar.
+
+**Font library.** 63 open-licence families (SIL OFL / Apache, licences in `public/fonts/<id>/LICENSE.txt`) plus the three standard PDF fonts. `npm run fonts` copies them from `@fontsource/*` (WOFF, Latin + Latin Extended) into `public/fonts`; they load on demand and are subset-embedded into saved PDFs. Export draws each word with the first font that has all its glyphs, mirroring the browser's CSS fallback, and synthesises bold/italic only when a family lacks that style.
+
+## 14. Selecting objects
+With a creation tool active, clicking an existing object of that kind (a whiteout with Whiteout, a highlight with Highlight, …) selects it instead of stacking a new one. With Select, dragging on empty space draws a selection box; clicking selected text again (or double-clicking it) edits it; a small toolbar above the selection offers Edit, Match original, Duplicate and Delete. Selectable objects show a hover outline, whiteouts and redactions show a faint outline so they can be found on a white page, and small objects get a larger invisible hit area.

@@ -31,6 +31,8 @@ export async function openPdf(bytes: Uint8Array, password?: string): Promise<PDF
     password,
     isEvalSupported: false,
     enableXfa: false,
+    // Keep embedded font data so edited text can reuse the PDF's own fonts.
+    fontExtraProperties: true,
   });
   try {
     return await task.promise;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toPdf, rectToPdf, rotatePt, wrapText, normalizeBox, intersects, baselineOffset, hexToRgb01 } from "@/lib/pdf/geometry";
+import { toPdf, rectToPdf, rotatePt, wrapText, normalizeBox, intersects, baselineOffset, hexToRgb01, FONT_METRICS } from "@/lib/pdf/geometry";
 
 const box = { x: 0, y: 0, width: 600, height: 800 };
 
@@ -39,7 +39,7 @@ describe("helpers", () => {
     expect(intersects(b, { x: 11, y: 0, w: 1, h: 1 })).toBe(false);
   });
   it("computes baselines like CSS line boxes", () => {
-    expect(baselineOffset("Helvetica", 10, 1, 1)).toBeGreaterThan(baselineOffset("Helvetica", 10, 1, 0));
+    expect(baselineOffset(FONT_METRICS.Helvetica, 10, 1, 1)).toBeGreaterThan(baselineOffset(FONT_METRICS.Helvetica, 10, 1, 0));
   });
   it("parses hex colours", () => {
     expect(hexToRgb01("#ff0000")).toEqual([1, 0, 0]);

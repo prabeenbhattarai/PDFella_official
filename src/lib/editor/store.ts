@@ -56,6 +56,10 @@ interface EditorState {
   pendingAsset: { asset: string; kind: "image" | "signature"; w: number; h: number } | null;
   clipboard: EditorObject[];
   redactPreview: boolean;
+  /** Edited text whose look differs from the original: ask which style to keep. */
+  stylePrompt: { id: string; missing?: string } | null;
+  /** False once the user ticks "Don't ask again" (this session). */
+  askStyle: boolean;
 
   // ── lifecycle
   reset(): void;
@@ -101,6 +105,8 @@ interface EditorState {
   setPendingAsset(p: EditorState["pendingAsset"]): void;
   setFormValue(name: string, value: string | boolean): void;
   setRedactPreview(v: boolean): void;
+  setStylePrompt(p: EditorState["stylePrompt"]): void;
+  setAskStyle(v: boolean): void;
 }
 
 const initialUi = {
@@ -114,6 +120,7 @@ const initialUi = {
   fit: "width" as const,
   pendingAsset: null,
   redactPreview: false,
+  stylePrompt: null,
 };
 
 const initialStyle: ToolStyle = {
@@ -163,6 +170,7 @@ export const useEditor = create<EditorState>()((set, get) => ({
   dirty: false,
   style: initialStyle,
   clipboard: [],
+  askStyle: true,
   ...initialUi,
 
   reset: () =>
@@ -374,6 +382,8 @@ export const useEditor = create<EditorState>()((set, get) => ({
   setPendingAsset: (pendingAsset) => set({ pendingAsset, tool: pendingAsset ? "select" : get().tool }),
   setFormValue: (name, value) => set((s) => ({ formValues: { ...s.formValues, [name]: value }, dirty: true })),
   setRedactPreview: (redactPreview) => set({ redactPreview }),
+  setStylePrompt: (stylePrompt) => set({ stylePrompt }),
+  setAskStyle: (askStyle) => set({ askStyle }),
 }));
 
 /** Rotate an object's box with its page (page display size given *before* rotation). */

@@ -14,10 +14,13 @@
 import {
   BlendMode, LineCapStyle, PDFArray, PDFCheckBox, PDFDict, PDFDocument, PDFDropdown, PDFFont, PDFHexString,
   PDFName, PDFOptionList, PDFPage, PDFRadioGroup, PDFRef, PDFStream, PDFString, PDFTextField, StandardFonts,
-  degrees, popGraphicsState, pushGraphicsState, rgb, setCharacterSpacing, type PDFImage,
+  TextRenderingMode, concatTransformationMatrix, degrees, popGraphicsState, pushGraphicsState, rgb, setCharacterSpacing,
+  setLineWidth, setStrokingColor, setTextRenderingMode, type PDFImage,
 } from "pdf-lib";
 import type { EditorObject, FieldObject, PageRef, SourceDoc, TextObject, TextEditObject } from "../editor/model";
-import { totalRotation, displaySize, cssFont } from "../editor/model";
+import { totalRotation, displaySize } from "../editor/model";
+import { ensureStyleFonts, facesFor, fontMetrics, fontStack, loadFontkit, type Face } from "../fonts/loader";
+import { isBuiltin } from "../fonts/catalog";
 import {
   PathBuilder, arrowHead, baselineOffset, boxTransform, checkPath, cloudPath, crossPath, ellipsePath, hexToRgb01,
   polygonPath, rectPath, rectToPdf, roundedRectPath, smoothStroke, starPoints, toPdf, wrapText, type PageFrame, type Pt,
@@ -121,13 +124,14 @@ export async function exportDocument(input: ExportInput, opts: ExportOptions = {
   // ── 3/4. Overlays, annotations, fields
   progress("Applying edits");
   const images = new Map<string, PDFImage>();
+  const embedded = new Map<string, Promise<PDFFont | null>>();
   const redactions: RedactionRegion[] = [];
   for (let i = 0; i < input.pages.length; i++) {
     const ref = input.pages[i];
     const page = outPages[i];
     const crop = page.getCropBox();
     const frame: PageFrame = { rotation: totalRotation(ref), box: crop };
-    const ctx: DrawCtx = { doc, page, frame, font, images, assets: input.assets, removed: new Set() };
+    const ctx: DrawCtx = { doc, page, frame, font, images, assets: input.assets, removed: new Set(), embedded };
     // Content edits first: delete original glyphs from the page's own content stream.
     const edits = (input.objects[ref.id] ?? []).filter((o): o is TextEditObject => o.kind === "textEdit" && o.strategy === "remove" && !!(o.original.pdfRuns?.length || o.original.pdf));
     if (edits.length) {
@@ -182,6 +186,8 @@ interface DrawCtx {
   assets: Record<string, string>;
   /** textEdit ids whose original glyphs were removed from the content stream. */
   removed: Set<string>;
+  /** Embedded library/original fonts, by face key. */
+  embedded: Map<string, Promise<PDFFont | null>>;
 }
 
 /** Draw an SVG path given in display coordinates. */
@@ -305,28 +311,131 @@ async function drawObject(ctx: DrawCtx, obj: EditorObject) {
   }
 }
 
+/** A font that can draw part of a line, plus how to synthesise a missing style. */
+interface PdfFace { pdf: PDFFont; covers: (ch: string) => boolean; fauxBold: boolean; fauxItalic: boolean }
+type Segment = { text: string; face: PdfFace | null; width: number };
+
+async function embedFace(ctx: DrawCtx, f: Face): Promise<PDFFont | null> {
+  const key = `${f.id}/${f.variant}-${f.subset}`;
+  let p = ctx.embedded.get(key);
+  if (!p) {
+    p = (async () => {
+      ctx.doc.registerFontkit(await loadFontkit());
+      try {
+        return await ctx.doc.embedFont(f.bytes, { subset: true });
+      } catch {
+        // Some converted PDF fonts can't be subset again; embed them whole (they are already subsets).
+        try { return await ctx.doc.embedFont(f.bytes, { subset: false }); } catch { return null; }
+      }
+    })();
+    ctx.embedded.set(key, p);
+  }
+  return p;
+}
+
+/** Fonts used to draw a text object, in the same fallback order as the browser's CSS stack. */
+async function textFaces(ctx: DrawCtx, obj: TextObject | TextEditObject): Promise<PdfFace[]> {
+  if (isBuiltin(obj.font)) {
+    const pdf = await ctx.font(obj.font, obj.bold, obj.italic);
+    return [{ pdf, covers: (ch) => canEncode(pdf, ch), fauxBold: false, fauxItalic: false }];
+  }
+  const out: PdfFace[] = [];
+  for (const f of await facesFor(obj, ctx.assets)) {
+    const pdf = await embedFace(ctx, f);
+    if (pdf) out.push({ pdf, covers: (ch) => f.font.hasGlyphForCodePoint(ch.codePointAt(0)!), fauxBold: f.fauxBold, fauxItalic: f.fauxItalic });
+  }
+  if (obj.fontFallback && isBuiltin(obj.fontFallback)) {
+    const pdf = await ctx.font(obj.fontFallback, obj.bold, obj.italic);
+    out.push({ pdf, covers: (ch) => canEncode(pdf, ch), fauxBold: false, fauxItalic: false });
+  }
+  return out;
+}
+
+/**
+ * Split a line into runs per font, a word at a time: a word uses the first font that
+ * has all of its letters (so a word never mixes fonts unless no single font can draw it).
+ * Spaces never switch fonts: if the current font lacks a space glyph (common in embedded
+ * subsets) the gap is left as an advance. Null if some character can't be drawn at all.
+ */
+function segmentLine(line: string, faces: PdfFace[], size: number, ls: number): Segment[] | null {
+  const segs: Segment[] = [];
+  const push = (text: string, face: PdfFace | null) => {
+    const cur = segs[segs.length - 1];
+    if (cur && cur.face === face) cur.text += text;
+    else segs.push({ text, face, width: 0 });
+  };
+  for (const token of line.split(/(\s+)/)) {
+    if (!token) continue;
+    if (/^\s+$/.test(token)) {
+      const cur = segs[segs.length - 1]?.face ?? null;
+      push(token, cur?.covers(" ") ? cur : null);
+      continue;
+    }
+    const whole = faces.find((f) => [...token].every((ch) => f.covers(ch)));
+    if (whole) { push(token, whole); continue; }
+    for (const ch of token) {
+      const f = faces.find((x) => x.covers(ch));
+      if (!f) return null;
+      push(ch, f);
+    }
+  }
+  const spaceFace = faces.find((f) => f.covers(" "));
+  for (const sg of segs) {
+    const n = [...sg.text].length;
+    const natural = sg.face
+      ? sg.face.pdf.widthOfTextAtSize(sg.text.replace(/\s/g, " "), size)
+      : spaceFace ? spaceFace.pdf.widthOfTextAtSize(" ", size) * n : n * size * 0.25;
+    sg.width = natural + ls * n;
+  }
+  return segs;
+}
+
+const lineWidth = (segs: Segment[], ls: number) => Math.max(0, segs.reduce((w, sg) => w + sg.width, 0) - ls);
+
 async function drawText(ctx: DrawCtx, obj: TextObject | TextEditObject) {
   if (!obj.text.trim()) return;
   const { frame, page } = ctx;
   const tf = boxTransform(obj);
-  const f = await ctx.font(obj.font, obj.bold, obj.italic);
-  if (!canEncode(f, obj.text)) return drawTextAsImage(ctx, obj);
+  await ensureStyleFonts(obj, ctx.assets);
+  const faces = await textFaces(ctx, obj);
+  const ls = obj.letterSpacing || 0;
+  const measure = (str: string) => segmentLine(str, faces, obj.size, ls);
+  // Anything no font can draw (e.g. CJK in a Latin font) falls back to a high-resolution image.
+  if (!faces.length || obj.text.split("\n").some((l) => !measure(l))) return drawTextAsImage(ctx, obj);
 
   if (obj.background) drawPath(ctx, rectPath(new PathBuilder(tf), obj.w, obj.h).toString(), { fill: obj.background, opacity: obj.opacity });
 
-  const ls = obj.letterSpacing || 0;
-  const widthOf = (s: string) => f.widthOfTextAtSize(s, obj.size) + ls * Math.max(0, [...s].length - 1);
-  const lines = wrapText(obj.text, obj.w + 0.5, widthOf);
-  const rotate = degrees(frame.rotation - obj.rotation);
+  const lines = wrapText(obj.text, obj.w + 0.5, (str) => lineWidth(measure(str)!, ls));
+  const metrics = fontMetrics(obj);
+  const rot = frame.rotation - obj.rotation;
+  const rad = (rot * Math.PI) / 180;
   const c = color(obj.color);
   if (ls) page.pushOperators(pushGraphicsState(), setCharacterSpacing(ls));
   lines.forEach((line, i) => {
-    const lw = widthOf(line);
+    const segs = measure(line)!;
+    const lw = lineWidth(segs, ls);
     const lx = obj.align === "center" ? (obj.w - lw) / 2 : obj.align === "right" ? obj.w - lw : 0;
-    const base = baselineOffset(obj.font, obj.size, obj.lineHeight, i);
-    if (line) {
-      const [x, y] = toPdf(frame, ...tf(lx, base));
-      page.drawText(line, { x, y, size: obj.size, font: f, color: c, opacity: obj.opacity, rotate });
+    const base = baselineOffset(metrics, obj.size, obj.lineHeight, i);
+    let cx = lx;
+    for (const sg of segs) {
+      if (sg.face && sg.text.trim()) {
+        const [x, y] = toPdf(frame, ...tf(cx, base));
+        const f = sg.face;
+        const faux = f.fauxBold || f.fauxItalic;
+        if (faux) {
+          page.pushOperators(pushGraphicsState());
+          if (f.fauxBold) page.pushOperators(setTextRenderingMode(TextRenderingMode.FillAndOutline), setLineWidth(obj.size * 0.035), setStrokingColor(c));
+        }
+        if (f.fauxItalic) {
+          // Slant in the text's own frame, then rotate/translate into place.
+          page.pushOperators(concatTransformationMatrix(Math.cos(rad), Math.sin(rad), -Math.sin(rad), Math.cos(rad), x, y), concatTransformationMatrix(1, 0, Math.tan((12 * Math.PI) / 180), 1, 0, 0));
+          page.drawText(sg.text, { x: 0, y: 0, size: obj.size, font: f.pdf, color: c, opacity: obj.opacity });
+        } else {
+          page.drawText(sg.text, { x, y, size: obj.size, font: f.pdf, color: c, opacity: obj.opacity, rotate: degrees(rot) });
+        }
+        if (faux) page.pushOperators(popGraphicsState());
+      }
+      cx += sg.width;
     }
     if (obj.underline && line.trim()) {
       const uy = base + obj.size * 0.12;
@@ -357,13 +466,14 @@ async function drawTextAsImage(ctx: DrawCtx, obj: TextObject | TextEditObject) {
   if (obj.background) { g.fillStyle = obj.background; g.fillRect(0, 0, obj.w, obj.h); }
   g.fillStyle = obj.color;
   g.textBaseline = "alphabetic";
-  g.font = `${obj.italic ? "italic " : ""}${obj.bold ? "bold " : ""}${obj.size}px ${cssFont[obj.font]}`;
+  await ensureStyleFonts(obj, ctx.assets);
+  g.font = `${obj.italic ? "italic " : ""}${obj.bold ? "bold " : ""}${obj.size}px ${fontStack(obj)}`;
   if ("letterSpacing" in g) (g as unknown as { letterSpacing: string }).letterSpacing = `${obj.letterSpacing}px`;
   const lines = wrapText(obj.text, obj.w + 0.5, (s) => g.measureText(s).width);
   lines.forEach((line, i) => {
     const lw = g.measureText(line).width;
     const lx = obj.align === "center" ? (obj.w - lw) / 2 : obj.align === "right" ? obj.w - lw : 0;
-    const by = baselineOffset(obj.font, obj.size, obj.lineHeight, i);
+    const by = baselineOffset(fontMetrics(obj), obj.size, obj.lineHeight, i);
     g.fillText(line, lx, by);
     if (obj.underline && line.trim()) g.fillRect(lx, by + obj.size * 0.09, lw, Math.max(0.5, obj.size * 0.06));
   });

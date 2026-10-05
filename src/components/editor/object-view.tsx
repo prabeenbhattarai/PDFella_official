@@ -1,10 +1,12 @@
 "use client";
 
-import { memo, useEffect, useLayoutEffect, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { StickyNote, Link2, PenLine, CheckSquare, CircleDot, ChevronDown, Calendar, Type as TypeIcon } from "lucide-react";
 import type { EditorObject, TextObject, TextEditObject } from "@/lib/editor/model";
-import { cssFont } from "@/lib/editor/model";
 import { useEditor } from "@/lib/editor/store";
+import { cn } from "@/lib/utils";
+import { ensureStyleFonts, fontStack } from "@/lib/fonts/loader";
+import { checkStyle } from "./style-choice";
 import {
   PathBuilder, arrowHead, checkPath, cloudPath, crossPath, ellipsePath, polygonPath, rectPath, roundedRectPath, smoothStroke, starPoints, type Pt,
 } from "@/lib/pdf/geometry";
@@ -26,7 +28,7 @@ function Svg({ w, h, children, overflow = true }: { w: number; h: number; childr
 }
 
 const textCss = (o: TextObject | TextEditObject, z: number): React.CSSProperties => ({
-  fontFamily: cssFont[o.font],
+  fontFamily: fontStack(o),
   fontSize: o.size * z,
   lineHeight: o.lineHeight,
   color: o.color,
@@ -38,9 +40,9 @@ const textCss = (o: TextObject | TextEditObject, z: number): React.CSSProperties
   textAlign: o.align,
   letterSpacing: o.letterSpacing * z,
   background: o.background ?? "transparent",
-  whiteSpace: "pre-wrap",
-  overflowWrap: "break-word",
-  wordBreak: "break-word",
+  // Edited PDF lines grow sideways like the original line (new lines only on Enter);
+  // added text boxes wrap at their width.
+  ...(o.kind === "textEdit" ? { whiteSpace: "pre" as const } : { whiteSpace: "pre-wrap" as const, overflowWrap: "break-word" as const, wordBreak: "break-word" as const }),
 });
 
 /** Editable text box. Keeps the model height in sync with its rendered content. */
@@ -50,6 +52,14 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
   const updateObject = useEditor((s) => s.updateObject);
   const setEditing = useEditor((s) => s.setEditing);
   const commitRef = useRef(false);
+  // Re-measure once the font (library or the PDF's own) has loaded.
+  const [, setFontsReady] = useState(0);
+  const assets = useEditor((s) => s.assets);
+  useEffect(() => {
+    let alive = true;
+    ensureStyleFonts(obj, assets).then(() => alive && setFontsReady((n) => n + 1));
+    return () => { alive = false; };
+  }, [obj.font, obj.fontFallback, obj.bold, obj.italic, assets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     const el = editing ? area.current : ref.current;
@@ -58,7 +68,11 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
     const h = el.scrollHeight / z;
     const minH = obj.size * obj.lineHeight;
     const next = Math.max(minH, h);
-    if (Math.abs(next - obj.h) > 0.5) updateObject(obj.id, { h: next });
+    const patch: Partial<TextObject> = {};
+    if (Math.abs(next - obj.h) > 0.5) patch.h = next;
+    // Edited lines never wrap: widen the box to fit (a little slack for export rounding).
+    if (obj.kind === "textEdit" && el.scrollWidth / z > obj.w + 0.5) patch.w = el.scrollWidth / z + 2;
+    if (patch.h !== undefined || patch.w !== undefined) updateObject(obj.id, patch);
   });
 
   useEffect(() => {
@@ -84,12 +98,14 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
         onBlur={() => {
           setEditing(null);
           if (!obj.text.trim() && obj.kind === "text") useEditor.getState().removeObjects([obj.id]);
+          if (obj.kind === "textEdit") void checkStyle(obj.id);
         }}
         onKeyDown={(e) => {
           e.stopPropagation();
           if (e.key === "Escape") (e.target as HTMLTextAreaElement).blur();
         }}
         onPointerDown={(e) => e.stopPropagation()}
+        wrap={obj.kind === "textEdit" ? "off" : undefined}
         className="absolute inset-x-0 top-0 resize-none overflow-hidden border-0 p-0 outline-none"
         style={{ ...textCss(obj, z), width: "100%", caretColor: obj.color, backgroundColor: obj.background ?? "rgba(255,255,255,0.01)" }}
         spellCheck
@@ -114,7 +130,11 @@ export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, 
     opacity: obj.kind === "highlight" ? undefined : obj.opacity,
     pointerEvents: interactive ? "auto" : "none",
   };
-  const cls = "absolute";
+  // Hover outline for anything selectable; whiteouts and redactions are otherwise
+  // invisible on a white page, so they get a faint outline while selectable.
+  const cls = cn("absolute", interactive && !editing && "obj-pickable", interactive && (obj.kind === "whiteout" || obj.kind === "redact") && !selected && "obj-ghost");
+  // Thin or tiny objects get a larger invisible hit area (at least ~14px on screen).
+  const padX = Math.max(0, (14 - obj.w * z) / 2), padY = Math.max(0, (14 - obj.h * z) / 2);
   const local = new PathBuilder();
 
   let content: React.ReactNode = null;
@@ -255,6 +275,7 @@ export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, 
         aria-selected={selected}
       >
         {content}
+        {interactive && (padX > 0 || padY > 0) && obj.kind !== "line" && obj.kind !== "arrow" && <span aria-hidden className="absolute" style={{ left: -padX, right: -padX, top: -padY, bottom: -padY }} />}
       </div>
     </>
   );

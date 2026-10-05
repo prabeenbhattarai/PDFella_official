@@ -57,3 +57,20 @@ export async function saveAndDownload(page: Page, name?: string) {
   const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("download-pdf").click()]);
   return d;
 }
+
+/** Real names of the fonts used to draw text containing `needle` on page 1. */
+export async function pdfFontsFor(bytes: Uint8Array, needle: string): Promise<string[]> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await pdfjs.getDocument({ data: bytes.slice(), isEvalSupported: false, fontExtraProperties: true }).promise;
+  const page = await doc.getPage(1);
+  await page.getOperatorList();
+  const tc = await page.getTextContent();
+  const names = new Set<string>();
+  for (const it of tc.items) {
+    if (!("str" in it) || !it.str.trim() || !needle.includes(it.str.trim().split(" ")[0])) continue;
+    const f = page.commonObjs.get(it.fontName) as { name?: string } | undefined;
+    names.add((f?.name ?? it.fontName).replace(/^[A-Z]{6}\+/, ""));
+  }
+  await doc.destroy();
+  return [...names];
+}

@@ -1,0 +1,521 @@
+{
+ "arimo": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "tinos": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "cousine": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "carlito": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "caladea": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "gelasio": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "inter": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "roboto": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "open-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "lato": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "montserrat": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "poppins": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "source-sans-3": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "noto-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "raleway": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "nunito": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "work-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "ubuntu": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "pt-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "fira-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "dm-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "barlow": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "oswald": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "rubik": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "mulish": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "ibm-plex-sans": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "karla": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "manrope": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "quicksand": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "merriweather": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "playfair-display": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "lora": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "eb-garamond": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "libre-baskerville": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "pt-serif": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "noto-serif": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "crimson-text": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "source-serif-4": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "libre-caslon-text": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic"
+  ],
+  "ext": true
+ },
+ "cormorant-garamond": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "bitter": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "ibm-plex-serif": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "spectral": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "roboto-mono": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "source-code-pro": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "jetbrains-mono": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "ibm-plex-mono": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "fira-code": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "space-mono": {
+  "styles": [
+   "400-normal",
+   "700-normal",
+   "400-italic",
+   "700-italic"
+  ],
+  "ext": true
+ },
+ "bebas-neue": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "anton": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "abril-fatface": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "archivo-black": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "lobster": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "righteous": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "dancing-script": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "pacifico": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "caveat": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "great-vibes": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "satisfy": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": false
+ },
+ "kalam": {
+  "styles": [
+   "400-normal",
+   "700-normal"
+  ],
+  "ext": true
+ },
+ "indie-flower": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ },
+ "shadows-into-light": {
+  "styles": [
+   "400-normal"
+  ],
+  "ext": true
+ }
+}

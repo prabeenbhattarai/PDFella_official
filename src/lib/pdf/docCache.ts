@@ -39,6 +39,8 @@ export interface TextRun {
   fontSize: number;
   /** Direction of the run in display space, degrees. 0 = left-to-right horizontal. */
   angle: number;
+  /** Baseline origin in display space. */
+  origin: [number, number];
   /** Origin, direction and extent in PDF user space. */
   pdf: { x: number; y: number; dx: number; dy: number; width: number; size: number };
 }
@@ -87,23 +89,41 @@ async function extractRuns(ref: PageRef): Promise<TextRun[]> {
     const p1 = lib.Util.applyTransform([e + dir[0], f + dir[1]], vp.transform);
     const angle = Math.round((Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) * 180) / Math.PI);
     const style = content.styles[item.fontName];
-    runs.push({ str: item.str, box, fontName: item.fontName, fontFamily: style?.fontFamily ?? "", fontSize: size, angle, pdf: { x: e, y: f, dx: dir[0], dy: dir[1], width: w, size } });
+    runs.push({ str: item.str, box, fontName: item.fontName, fontFamily: style?.fontFamily ?? "", fontSize: size, angle, origin: [p0[0], p0[1]], pdf: { x: e, y: f, dx: dir[0], dy: dir[1], width: w, size } });
   }
   return runs;
 }
 
-/** Real PostScript font name for a pdf.js internal font id (e.g. "g_d0_f1" → "ABCDEF+Arial-BoldMT"). */
-export async function resolveFontName(ref: PageRef, loadedName: string): Promise<string> {
+export interface PdfFontInfo {
+  /** PostScript name, e.g. "ABCDEF+Arial-BoldMT". */
+  name: string;
+  /** Embedded font program as converted by pdf.js (OpenType), when the PDF embeds it. */
+  data: Uint8Array | null;
+  bold: boolean;
+  black: boolean;
+  italic: boolean;
+}
+
+/** Font details for a pdf.js internal font id (e.g. "g_d0_f1"). */
+export async function getFontInfo(ref: PageRef, loadedName: string): Promise<PdfFontInfo> {
+  const fallback = { name: loadedName, data: null, bold: false, black: false, italic: false };
   const page = await getPage(ref);
-  if (!page) return loadedName;
+  if (!page) return fallback;
   try {
     // Ensure fonts are loaded into commonObjs (operator list triggers font loading).
     await page.getOperatorList();
-    const font = page.commonObjs.get(loadedName) as { name?: string } | undefined;
-    return font?.name ?? loadedName;
+    const f = page.commonObjs.get(loadedName) as { name?: string; data?: Uint8Array; bold?: boolean; black?: boolean; italic?: boolean; missingFile?: boolean; isType3Font?: boolean } | undefined;
+    if (!f) return fallback;
+    const data = !f.missingFile && !f.isType3Font && f.data?.length ? f.data : null;
+    return { name: f.name ?? loadedName, data, bold: !!f.bold, black: !!f.black, italic: !!f.italic };
   } catch {
-    return loadedName;
+    return fallback;
   }
+}
+
+/** Real PostScript font name for a pdf.js internal font id (e.g. "g_d0_f1" → "ABCDEF+Arial-BoldMT"). */
+export async function resolveFontName(ref: PageRef, loadedName: string): Promise<string> {
+  return (await getFontInfo(ref, loadedName)).name;
 }
 
 /** Heuristic: a page with almost no text but some images is probably a scan. */

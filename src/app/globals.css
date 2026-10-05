@@ -141,6 +141,12 @@ body {
   100% { transform: translateX(300%); }
 }
 
+/* Editor: selectable objects */
+.obj-pickable { cursor: move; }
+.obj-pickable:hover { outline: 1.5px dashed color-mix(in srgb, var(--accent) 75%, transparent); outline-offset: 1px; }
+.obj-ghost { outline: 1px dashed rgb(100 116 139 / 0.55); outline-offset: 0; }
+[data-kind="text"].obj-pickable, [data-kind="textEdit"].obj-pickable { cursor: text; }
+
 /* Logo loader */
 @keyframes logo-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 .logo-breathe { animation: logo-breathe 1.6s ease-in-out infinite; }

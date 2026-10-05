@@ -3,7 +3,7 @@ import { lineGroup, wordAt } from "@/lib/editor/text-lines";
 import type { TextRun } from "@/lib/pdf/docCache";
 
 const run = (str: string, x: number, w: number, y = 700): TextRun => ({
-  str, box: { x, y: 841.89 - y - 10, w, h: 13 }, fontName: "f", fontFamily: "", fontSize: 12, angle: 0,
+  str, box: { x, y: 841.89 - y - 10, w, h: 13 }, fontName: "f", fontFamily: "", fontSize: 12, angle: 0, origin: [x, 841.89 - y],
   pdf: { x, y, dx: 1, dy: 0, width: w, size: 12 },
 });
 

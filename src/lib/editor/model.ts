@@ -16,7 +16,12 @@
  *   redactions     → redact                  (destructive, applied last)
  */
 
-export type FontFamily = "Helvetica" | "Times" | "Courier";
+/**
+ * Font id: "Helvetica" | "Times" | "Courier" (standard PDF fonts), a library font id
+ * from src/lib/fonts/catalog.ts, or "orig:<asset>:<bold><italic>" for a font
+ * embedded in the user's PDF. See src/lib/fonts/loader.ts.
+ */
+export type FontFamily = string;
 
 export interface Box { x: number; y: number; w: number; h: number }
 
@@ -30,6 +35,8 @@ interface Base extends Box {
 
 export interface TextStyle {
   font: FontFamily;
+  /** Used for characters the main font lacks (an original PDF font only holds the glyphs it used). */
+  fontFallback?: FontFamily;
   size: number;
   color: string;
   bold: boolean;
@@ -42,6 +49,10 @@ export interface TextStyle {
 }
 
 export interface TextObject extends Base, TextStyle { kind: "text"; text: string }
+
+/** The look of the original PDF text, as detected when an edit starts. */
+export type OriginalStyle = Pick<TextStyle, "font" | "fontFallback" | "size" | "color" | "bold" | "italic" | "letterSpacing">;
+export const ORIGINAL_STYLE_KEYS = ["font", "fontFallback", "size", "color", "bold", "italic", "letterSpacing"] as const;
 
 /** Replacement for a run of original page text. */
 export interface TextEditObject extends Base, TextStyle {
@@ -58,6 +69,17 @@ export interface TextEditObject extends Base, TextStyle {
   };
   /** Colour used to cover the original glyphs in the overlay strategy. */
   cover: string;
+  /** Detected style of the original text ("Match original style" restores it). */
+  originalStyle?: OriginalStyle;
+  /**
+   * How the original font is reproduced:
+   * embedded — the font file inside the PDF is reused
+   * metric   — a library font with the same design/widths
+   * similar  — the closest available design (looks different)
+   */
+  fontMatch?: { name: string; kind: "embedded" | "metric" | "similar"; fallbackMetric?: boolean };
+  /** "keep": the user chose to keep a look that differs from the original (don't ask again). */
+  styleAck?: "keep";
   /**
    * remove  — original glyphs deleted from the page content stream (tried first, in the browser)
    * overlay — original covered, replacement typeset on top (fallback when removal isn't safe)
@@ -179,16 +201,3 @@ export const defaultTextStyle: TextStyle = {
 };
 
 export const isTextLike = (o: EditorObject): o is TextObject | TextEditObject => o.kind === "text" || o.kind === "textEdit";
-
-export const cssFont: Record<FontFamily, string> = {
-  Helvetica: "Helvetica, Arial, 'Liberation Sans', sans-serif",
-  Times: "'Times New Roman', Times, 'Liberation Serif', serif",
-  Courier: "'Courier New', Courier, 'Liberation Mono', monospace",
-};
-
-/** Map a PDF font name (e.g. "ABCDEF+TimesNewRomanPS-BoldMT") to our closest standard family + style. */
-export function matchFont(fontName: string, fontFamilyHint = ""): Pick<TextStyle, "font" | "bold" | "italic"> {
-  const n = `${fontName} ${fontFamilyHint}`.toLowerCase();
-  const font: FontFamily = /courier|mono|consol/.test(n) ? "Courier" : /times|serif|georgia|garamond|roman|cambria|minion|book/.test(n) && !/sans/.test(n) ? "Times" : "Helvetica";
-  return { font, bold: /bold|black|heavy|semibold|demi/.test(n), italic: /italic|oblique/.test(n) };
-}
