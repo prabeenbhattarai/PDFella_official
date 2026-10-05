@@ -15,6 +15,12 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-e2e/**",
+      // Vendored, minified browser bundles (copied from node_modules).
+      "public/pdf.worker.min.mjs",
+      "services/worker/.venv/**",
+      "test-results/**",
+      "playwright-report/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
