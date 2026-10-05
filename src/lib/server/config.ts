@@ -1,4 +1,5 @@
 import "server-only";
+import { brand } from "../brand";
 
 /**
  * Server configuration. Backends are chosen from the environment:
@@ -15,7 +16,7 @@ function env(name: string, fallback?: string): string | undefined {
 }
 
 export const config = {
-  appUrl: env("APP_URL", env("NEXT_PUBLIC_SITE_URL", "http://localhost:3000"))!,
+  appUrl: env("APP_URL", brand.url)!,
   workerUrl: env("WORKER_URL"),
   /** Shared HMAC secret for capability tokens, signed local URLs and worker callbacks. */
   secret: env("APP_SECRET", process.env.NODE_ENV === "production" ? undefined : "dev-insecure-secret-change-me"),
