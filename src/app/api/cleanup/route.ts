@@ -6,8 +6,10 @@ import { json, fail } from "@/lib/server/http";
 export const dynamic = "force-dynamic";
 
 /**
- * Deletes expired jobs and their files. Invoked every 10 minutes by Cloud
- * Scheduler / Vercel Cron with `Authorization: Bearer $CRON_SECRET`.
+ * Deletes expired jobs and their files. Must run every 10 minutes when the
+ * processing worker is enabled (Cloud Scheduler, or Vercel Cron on Pro), with
+ * `Authorization: Bearer $CRON_SECRET`. vercel.json only schedules a daily run
+ * because Vercel Hobby allows nothing more frequent.
  * (A storage lifecycle rule deletes anything older than 1 day as a backstop.)
  */
 async function sweep(req: Request) {
