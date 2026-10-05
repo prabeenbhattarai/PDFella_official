@@ -1,0 +1,7 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "jobs", "fieldPath": "expiresAtTs", "ttl": true, "indexes": [] },
+    { "collectionGroup": "usage", "fieldPath": "expiresAtTs", "ttl": true, "indexes": [] }
+  ]
+}

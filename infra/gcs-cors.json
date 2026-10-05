@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://YOUR_DOMAIN"],
+    "method": ["PUT", "GET"],
+    "responseHeader": ["Content-Type", "x-goog-content-length-range"],
+    "maxAgeSeconds": 600
+  }
+]

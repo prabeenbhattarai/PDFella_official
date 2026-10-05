@@ -1,0 +1,9 @@
+rules_version = '2';
+// Uploaded documents are never accessible through Firebase client SDKs; only via short-lived V4 signed URLs.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

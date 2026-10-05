@@ -1,0 +1,6 @@
+{
+  "rule": [
+    { "action": { "type": "Delete" }, "condition": { "age": 1, "matchesPrefix": ["tmp/"] } },
+    { "action": { "type": "AbortIncompleteMultipartUpload" }, "condition": { "age": 1 } }
+  ]
+}

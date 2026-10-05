@@ -1,0 +1,227 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────────────────── Design tokens ─────────────────────────
+   Paper-and-ink palette: warm neutral surfaces, near-black ink, one
+   confident accent (deep viridian). Everything else derives from these. */
+:root {
+  --bg: #f7f7f4;
+  --surface: #ffffff;
+  --surface-2: #f0f0ec;
+  --surface-3: #e7e7e1;
+  --border: #e2e2dc;
+  --border-strong: #cfcfc7;
+  --ink: #15171c;
+  --ink-2: #353942;
+  --ink-3: #5a5f6b;
+  --accent: #0c7a64;
+  --accent-hover: #09634f;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2f1ec;
+  --danger: #c4372b;
+  --danger-soft: #fbe9e7;
+  --warn: #b26a00;
+  --warn-soft: #fdf1dc;
+  --ok: #1d7f4e;
+  --workspace: #e9e9e4;
+  --ring: #0c7a6455;
+  --shadow-sm: 0 1px 2px rgb(20 22 28 / 0.06);
+  --shadow-md: 0 4px 16px -4px rgb(20 22 28 / 0.10), 0 1px 3px rgb(20 22 28 / 0.06);
+  --shadow-lg: 0 24px 48px -12px rgb(20 22 28 / 0.18);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0e1013;
+  --surface: #16191e;
+  --surface-2: #1d2127;
+  --surface-3: #272c33;
+  --border: #2a2f37;
+  --border-strong: #3a404a;
+  --ink: #eef0f3;
+  --ink-2: #ccd1d9;
+  --ink-3: #a3aab5;
+  --accent: #3ccaa6;
+  --accent-hover: #5fd8b9;
+  --accent-ink: #062a22;
+  --accent-soft: #12352d;
+  --danger: #ff6b5e;
+  --danger-soft: #3a1714;
+  --warn: #f2b24c;
+  --warn-soft: #3a2a10;
+  --ok: #4fd18d;
+  --workspace: #0a0b0d;
+  --ring: #3ccaa655;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 4px 16px -4px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-workspace: var(--workspace);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-serif), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --radius-xl: 14px;
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-pop: pop 180ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--accent-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Subtle ruled-paper texture used behind the hero. */
+.bg-ruled {
+  background-image: linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 100% 32px;
+  mask-image: radial-gradient(ellipse at 50% 30%, black 20%, transparent 70%);
+}
+
+/* pdf.js text layer (used for search + text selection). */
+.pdf-text-layer { position: absolute; inset: 0; overflow: hidden; line-height: 1; opacity: 1; }
+.pdf-text-layer span { position: absolute; white-space: pre; color: transparent; transform-origin: 0 0; cursor: text; }
+.pdf-text-layer ::selection { background: rgb(12 122 100 / 0.3); }
+
+.checkerboard {
+  background-image: conic-gradient(var(--surface-3) 25%, transparent 0 50%, var(--surface-3) 0 75%, transparent 0);
+  background-size: 12px 12px;
+}
+
+@keyframes indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Logo loader */
+@keyframes logo-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.logo-breathe { animation: logo-breathe 1.6s ease-in-out infinite; }
+.loader-bar { animation: indeterminate 1.2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .logo-breathe, .loader-bar { animation: none; } }
+
+/* ───────────────────────── Layout & decorative system ───────────────────────── */
+:root {
+  --pdf: #e5322d;
+  --cat-edit: #e5322d;
+  --cat-organise: #ee7a12;
+  --cat-convert: #1f6feb;
+  --cat-optimise: #0c7a64;
+  --cat-security: #7c3aed;
+  --cat-forms: #d6336c;
+}
+.dark {
+  --pdf: #ff5a52;
+  --cat-edit: #ff6b63;
+  --cat-organise: #ff9a3d;
+  --cat-convert: #5b9bff;
+  --cat-optimise: #3ccaa6;
+  --cat-security: #a78bfa;
+  --cat-forms: #f472b6;
+}
+
+@layer components {
+/* Full-width page container: edge-to-edge sections, generous but bounded content. */
+.wrap { width: 100%; max-width: 1560px; margin-inline: auto; padding-inline: 20px; }
+@media (min-width: 640px) { .wrap { padding-inline: 32px; } }
+@media (min-width: 1024px) { .wrap { padding-inline: 56px; } }
+
+/* Dotted "drafting table" background. */
+.bg-dots {
+  background-image: radial-gradient(color-mix(in srgb, var(--ink) 14%, transparent) 1px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+/* Soft colour glows used behind the hero. */
+.bg-glow {
+  background:
+    radial-gradient(42rem 26rem at 12% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(36rem 24rem at 92% 20%, color-mix(in srgb, var(--pdf) 12%, transparent), transparent 70%),
+    radial-gradient(40rem 22rem at 60% 100%, color-mix(in srgb, var(--cat-convert) 9%, transparent), transparent 70%);
+}
+
+/* A sheet of paper with a folded top-right corner. */
+.paper {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+}
+.paper::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0;
+  width: 22px; height: 22px;
+  background: linear-gradient(225deg, transparent 50%, var(--surface-3) 50%);
+  border-bottom-left-radius: 4px;
+  box-shadow: -1px 1px 2px rgb(0 0 0 / 0.08);
+}
+
+}
+
+@keyframes float-a { 0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); } 50% { transform: translateY(-10px) rotate(var(--r, 0deg)); } }
+@keyframes float-b { 0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); } 50% { transform: translateY(8px) rotate(var(--r, 0deg)); } }
+@keyframes draw { from { stroke-dashoffset: var(--len, 300); } to { stroke-dashoffset: 0; } }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-18px) rotate(var(--r, 0deg)); } to { opacity: 1; transform: translateY(0) rotate(var(--r, 0deg)); } }
+@keyframes press { 0%, 70%, 100% { transform: rotate(-4deg) scale(1); } 80% { transform: rotate(-4deg) scale(0.94); } }
+@keyframes burst { 0%, 60% { opacity: 0; transform: scale(0.8); } 75% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.12); } }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+.float-a { animation: float-a 6s ease-in-out infinite; }
+.float-b { animation: float-b 7s ease-in-out infinite; }
+.marquee { animation: marquee 40s linear infinite; }
+
+/* Scroll-triggered animations: elements start paused until .in-view is added. */
+.reveal { opacity: 0; transform: translateY(14px); transition: opacity 600ms ease, transform 600ms cubic-bezier(.2,.8,.2,1); }
+.in-view .reveal, .reveal.in-view { opacity: 1; transform: none; }
+.in-view .anim-draw { animation: draw 1.4s ease-out forwards; }
+.in-view .anim-drop { animation: drop-in 700ms cubic-bezier(.2,.9,.3,1.2) both; }
+.in-view .anim-press { animation: press 2.6s ease-in-out infinite 0.8s; }
+.in-view .anim-burst { animation: burst 2.6s ease-out infinite 0.8s; }
+.anim-draw { stroke-dashoffset: var(--len, 300); stroke-dasharray: var(--len, 300); }
