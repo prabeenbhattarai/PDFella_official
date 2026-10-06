@@ -13,5 +13,5 @@ export const brand = {
   description:
     "Edit, convert, sign, compress, organise and protect your documents online, without installing software or creating an account.",
   url: siteUrl,
-  supportEmail: "support@pdfella.example",
+  supportEmail: "support@pdfella.com",
 } as const;
