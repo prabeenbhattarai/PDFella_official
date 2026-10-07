@@ -132,7 +132,7 @@ export function SaveDialog({ open, onClose, onNew }: { open: boolean; onClose: (
             <CheckCircle2 className="size-6 shrink-0 text-accent" />
             <div className="min-w-0 text-sm">
               <p className="font-medium">All changes applied</p>
-              <p className="text-ink-3">{useEditor.getState().pages.length} pages · {formatBytes(phase.bytes.length)}</p>
+              <p className="text-ink-3">{useEditor.getState().pages.length} page{useEditor.getState().pages.length === 1 ? "" : "s"} · {formatBytes(phase.bytes.length)}</p>
             </div>
           </div>
           <div className="space-y-1.5">

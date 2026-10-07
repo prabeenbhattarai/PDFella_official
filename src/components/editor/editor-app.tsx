@@ -31,6 +31,7 @@ import { SearchBar } from "./search-bar";
 import { TOOL_DEFS } from "./tools";
 import { ToolHint } from "./tool-hint";
 import { armAsset, buildPdf, printDocument, readImage } from "./actions";
+import { getEditedPage, removableEdits } from "@/lib/pdf/page-preview";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
@@ -40,6 +41,7 @@ export function EditorApp() {
   const error = useEditor((s) => s.error);
   const pages = useEditor((s) => s.pages.length);
   const selection = useEditor((s) => s.selection);
+  const editingId = useEditor((s) => s.editingId);
   const tool = useEditor((s) => s.tool);
   const signatures = useEditor((s) => s.signatures);
   const assets = useEditor((s) => s.assets);
@@ -169,7 +171,7 @@ export function EditorApp() {
   // Dev/test hook (never shipped to production): lets Playwright inspect exported bytes.
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
-    (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf };
+    (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf, getEditedPage, removableEdits };
   }, []);
 
   // Keyboard shortcuts.
@@ -258,7 +260,7 @@ export function EditorApp() {
                   <History className="size-5 text-accent" />
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="font-medium">Restore your previous document?</p>
-                    <p className="truncate text-ink-3">{restore.docName} · {restore.pages} pages · {new Date(restore.savedAt).toLocaleString()}</p>
+                    <p className="truncate text-ink-3">{restore.docName} · {restore.pages} page{restore.pages === 1 ? "" : "s"} · {new Date(restore.savedAt).toLocaleString()}</p>
                   </div>
                   <Button size="sm" onClick={async () => { setRestore(null); await restoreAutosave(); applyQuery(); }}>Restore</Button>
                   <Button size="sm" variant="ghost" onClick={async () => { setRestore(null); await clearAutosave(); }}>Discard</Button>
@@ -275,7 +277,8 @@ export function EditorApp() {
     );
   }
 
-  const mobileSheet = selection.length > 0 || (tool !== "select" && tool !== "hand");
+  // While text is being edited on a phone, the text sheet replaces the properties sheet.
+  const mobileSheet = !editingId && (selection.length > 0 || (tool !== "select" && tool !== "hand"));
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg" data-testid="editor">

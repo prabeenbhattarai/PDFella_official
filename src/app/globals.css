@@ -141,6 +141,10 @@ body {
   100% { transform: translateX(300%); }
 }
 
+/* Text on the PDF page sits on white paper in both themes: use a light, word-processor
+   style selection there instead of the theme's (dark in dark mode) accent tint. */
+[data-page-layer] ::selection, [data-page-layer] textarea::selection { background: #b4d7ff; color: inherit; }
+
 /* Editor: selectable objects */
 .obj-pickable { cursor: move; }
 .obj-pickable:hover { outline: 1.5px dashed color-mix(in srgb, var(--accent) 75%, transparent); outline-offset: 1px; }

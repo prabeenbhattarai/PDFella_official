@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, MousePointerClick } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import { TOOL_DEFS } from "./tools";
+import { useTouchEditing } from "@/lib/hooks/use-touch-editing";
 
 const TIP_KEY = "pdfella.tip.dblclick";
 
@@ -16,6 +17,7 @@ export function ToolHint() {
   const pending = useEditor((s) => s.pendingAsset);
   const editing = useEditor((s) => s.editingId);
   const [tipSeen, setTipSeen] = useState(true);
+  const touch = useTouchEditing();
   useEffect(() => {
     try { setTipSeen(localStorage.getItem(TIP_KEY) === "1"); } catch { setTipSeen(false); }
   }, []);
@@ -30,7 +32,7 @@ export function ToolHint() {
     return (
       <div className="pointer-events-auto absolute top-3 left-1/2 z-20 flex w-max max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-border bg-surface py-1.5 pr-1.5 pl-3.5 text-[12px] leading-snug shadow-md animate-pop sm:rounded-full sm:text-[13px]" role="status">
         <MousePointerClick className="size-4 shrink-0 text-accent" />
-        <span><b className="font-semibold">Tip:</b> double-click any word or sentence in the PDF to edit it.</span>
+        <span><b className="font-semibold">Tip:</b> {touch ? "tap" : "double-click"} any word or sentence in the PDF to edit it.</span>
         <button onClick={dismissTip} className="rounded-full p-1 text-ink-3 hover:bg-surface-2 hover:text-ink" aria-label="Dismiss tip"><X className="size-3.5" /></button>
       </div>
     );

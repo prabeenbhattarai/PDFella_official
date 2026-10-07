@@ -24,6 +24,7 @@ type Gesture =
   | { type: "erase" }
   | { type: "move"; start: Pt; origs: EditorObject[]; committed: boolean; reclick?: string }
   | { type: "marquee"; start: Pt; cur: Pt; base: string[] }
+  | { type: "tap"; start: Pt; x: number; y: number; t: number }
   | { type: "resize"; id: string; hx: number; hy: number; orig: EditorObject; committed: boolean }
   | { type: "rotate"; id: string; orig: EditorObject; committed: boolean }
   | { type: "lineEnd"; id: string; which: 1 | 2; committed: boolean };
@@ -75,7 +76,7 @@ const cw = (b: Box) => b.h * 0.6;
 
 function cssRotateDeg(deg: number) { return ((deg % 360) + 360) % 360; }
 
-export function PageLayer({ page, index, z, sample }: { page: PageRef; index: number; z: number; sample: ColorSampler }) {
+export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; index: number; z: number; sample: ColorSampler; removed: Set<string> }) {
   const ref = useRef<HTMLDivElement>(null);
   const tool = useEditor((s) => s.tool);
   const objects = useEditor((s) => s.objects[page.id]) ?? EMPTY;
@@ -204,7 +205,8 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     finishCreate(t);
   };
 
-  const runAt = (all: TextRun[], [x, y]: Pt) => all.find((r) => x >= r.box.x - 1 && x <= r.box.x + r.box.w + 1 && y >= r.box.y - 1 && y <= r.box.y + r.box.h + 1);
+  /** PDF text under a point; `tol` (page units) widens the target for fingers. */
+  const runAt = (all: TextRun[], [x, y]: Pt, tol = 1) => all.find((r) => x >= r.box.x - tol && x <= r.box.x + r.box.w + tol && y >= r.box.y - tol && y <= r.box.y + r.box.h + tol);
 
   /** Open existing PDF text for editing: the whole line, with the clicked word selected. */
   const editRun = async (run: TextRun, at?: Pt) => {
@@ -324,14 +326,19 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
         set({ type: "move", start: p, origs: objects.filter((o) => sel.includes(o.id)), committed: false, reclick });
       } else {
         const base = e.shiftKey ? s.selection : [];
+        const hadSelection = s.selection.length > 0 || !!s.editingId;
         s.select(base);
         s.setEditing(null);
-        // Rubber-band selection (mouse/pen only: touch drags scroll the page).
-        if (e.pointerType !== "touch") {
-          e.preventDefault(); // no native drag/text selection (Firefox would cancel the pointer)
-          ref.current!.setPointerCapture(e.pointerId);
-          set({ type: "marquee", start: p, cur: p, base });
+        // Phones have no hover or double-click: a tap on PDF text edits it (unless the
+        // tap was just dismissing a selection).
+        if (e.pointerType === "touch") {
+          if (!hadSelection) set({ type: "tap", start: p, x: e.clientX, y: e.clientY, t: performance.now() });
+          return;
         }
+        // Rubber-band selection (mouse/pen; touch drags scroll the page instead).
+        e.preventDefault(); // no native drag/text selection (Firefox would cancel the pointer)
+        ref.current!.setPointerCapture(e.pointerId);
+        set({ type: "marquee", start: p, cur: p, base });
       }
       return;
     }
@@ -344,7 +351,7 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     if (tool === "editText") {
       (async () => {
         const all = runs ?? (await getTextRuns(page).catch(() => []));
-        const run = runAt(all, p);
+        const run = runAt(all, p, e.pointerType === "touch" ? 10 / z : 1);
         if (run) editRun(run, p);
       })();
       return;
@@ -464,6 +471,16 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
     if (!g) return;
     try { ref.current?.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     const st = useEditor.getState().style;
+    if (g.type === "tap") {
+      // A cancelled pointer means the browser took over (scrolling or zooming), not a tap.
+      if (e.type === "pointercancel" || Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10 || performance.now() - g.t > 600) return;
+      void (async () => {
+        const all = runs ?? (await getTextRuns(page).catch(() => []));
+        const run = runAt(all, g.start, 10 / z);
+        if (run) editRun(run, g.start);
+      })();
+      return;
+    }
     if (g.type === "move" && !g.committed && g.reclick) {
       useEditor.getState().setEditing(g.reclick);
       return;
@@ -509,7 +526,7 @@ export function PageLayer({ page, index, z, sample }: { page: PageRef; index: nu
       data-page-layer={page.id}
     >
       {objects.map((o) => (
-        <ObjectView key={o.id} obj={o} z={z} selected={selection.includes(o.id)} editing={editingId === o.id} redactPreview={redactPreview} interactive={interactive || !!picks?.includes(o.kind) || editingId === o.id} />
+        <ObjectView key={o.id} obj={o} z={z} selected={selection.includes(o.id)} editing={editingId === o.id} redactPreview={redactPreview} interactive={interactive || !!picks?.includes(o.kind) || editingId === o.id} covered={!removed.has(o.id)} />
       ))}
 
       {tool === "select" && hoverRun && (

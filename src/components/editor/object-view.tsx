@@ -7,6 +7,8 @@ import { useEditor } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 import { ensureStyleFonts, fontStack } from "@/lib/fonts/loader";
 import { checkStyle } from "./style-choice";
+import { MobileTextSheet } from "./mobile-text-sheet";
+import { useTouchEditing } from "@/lib/hooks/use-touch-editing";
 import {
   PathBuilder, arrowHead, checkPath, cloudPath, crossPath, ellipsePath, polygonPath, rectPath, roundedRectPath, smoothStroke, starPoints, type Pt,
 } from "@/lib/pdf/geometry";
@@ -52,6 +54,7 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
   const updateObject = useEditor((s) => s.updateObject);
   const setEditing = useEditor((s) => s.setEditing);
   const commitRef = useRef(false);
+  const touch = useTouchEditing();
   // Re-measure once the font (library or the PDF's own) has loaded.
   const [, setFontsReady] = useState(0);
   const assets = useEditor((s) => s.assets);
@@ -62,7 +65,7 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
   }, [obj.font, obj.fontFallback, obj.bold, obj.italic, assets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
-    const el = editing ? area.current : ref.current;
+    const el = editing && !touch ? area.current : ref.current;
     if (!el) return;
     if (editing && area.current) { area.current.style.height = "0px"; area.current.style.height = `${area.current.scrollHeight}px`; }
     const h = el.scrollHeight / z;
@@ -70,21 +73,30 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
     const next = Math.max(minH, h);
     const patch: Partial<TextObject> = {};
     if (Math.abs(next - obj.h) > 0.5) patch.h = next;
-    // Edited lines never wrap: widen the box to fit (a little slack for export rounding).
-    if (obj.kind === "textEdit" && el.scrollWidth / z > obj.w + 0.5) patch.w = el.scrollWidth / z + 2;
+    // Edited lines never wrap: widen the box when the text really overflows it (compared
+    // in whole pixels: comparing scaled sizes made sub-pixel rounding grow it forever).
+    if (obj.kind === "textEdit" && el.scrollWidth > el.clientWidth + 1) patch.w = el.scrollWidth / z + 2;
     if (patch.h !== undefined || patch.w !== undefined) updateObject(obj.id, patch);
   });
 
   useEffect(() => {
-    if (editing && area.current) {
+    if (editing && !touch && area.current) {
       area.current.focus();
       const sel = useEditor.getState().editSelection;
       if (sel) area.current.setSelectionRange(sel[0], sel[1]);
       else area.current.select();
       commitRef.current = false;
     }
-  }, [editing]);
+  }, [editing, touch]);
 
+  if (editing && touch) {
+    return (
+      <>
+        <div ref={ref} className="absolute inset-x-0 top-0 select-none outline-2 outline-offset-2 outline-accent outline-dashed" style={textCss(obj, z)}>{obj.text || "​"}</div>
+        <MobileTextSheet obj={obj} />
+      </>
+    );
+  }
   if (editing) {
     return (
       <textarea
@@ -117,8 +129,10 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
 
 const fieldIcons = { text: TypeIcon, date: Calendar, checkbox: CheckSquare, radio: CircleDot, dropdown: ChevronDown, signature: PenLine };
 
-export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, redactPreview, interactive }: {
+export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, redactPreview, interactive, covered = true }: {
   obj: EditorObject; z: number; selected: boolean; editing: boolean; redactPreview: boolean; interactive: boolean;
+  /** textEdit only: false once the page preview no longer contains the original text. */
+  covered?: boolean;
 }) {
   const assets = useEditor((s) => s.assets);
   const base: React.CSSProperties = {
@@ -233,7 +247,7 @@ export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, 
       break;
     case "textEdit": {
       const o = obj.original.box;
-      extra = <div className="absolute" style={{ left: (o.x - 0.5) * z, top: (o.y - 0.5) * z, width: (o.w + 1) * z, height: (o.h + 1) * z, background: obj.cover, pointerEvents: "none" }} />;
+      if (covered) extra = <div data-cover className="absolute" style={{ left: (o.x - 0.5) * z, top: (o.y - 0.5) * z, width: (o.w + 1) * z, height: (o.h + 1) * z, background: obj.cover, pointerEvents: "none" }} />;
       content = <TextBox obj={obj} z={z} editing={editing} />;
       break;
     }

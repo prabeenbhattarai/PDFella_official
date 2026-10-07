@@ -1,6 +1,6 @@
 "use client";
 
-import type { RenderTask } from "pdfjs-dist";
+import type { PDFPageProxy, RenderTask } from "pdfjs-dist";
 import type { PageRef } from "../editor/model";
 import { totalRotation } from "../editor/model";
 import { getPage } from "./docCache";
@@ -25,12 +25,13 @@ const MAX_PIXELS = 12_000_000;
 
 export interface RenderHandle { promise: Promise<void>; cancel: () => void }
 
-export function renderPage(ref: PageRef, canvas: HTMLCanvasElement, cssScale: number, dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1): RenderHandle {
+/** `override` renders a different pdf.js page in place of the source page (e.g. with edited text removed). */
+export function renderPage(ref: PageRef, canvas: HTMLCanvasElement, cssScale: number, dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, override?: PDFPageProxy | null): RenderHandle {
   let task: RenderTask | null = null;
   let cancelled = false;
   const promise = slot(async () => {
     if (cancelled) return;
-    const page = await getPage(ref);
+    const page = override ?? (await getPage(ref));
     if (cancelled) return;
     const base = page
       ? page.getViewport({ scale: 1, rotation: totalRotation(ref) })

@@ -121,3 +121,27 @@ test("clicking selected text again starts editing it", async ({ page }) => {
   await page.mouse.click(tb.x + tb.width / 3, tb.y + tb.height / 2);
   await expect(page.getByRole("textbox", { name: "Text" })).toBeFocused();
 });
+
+test("editing text removes the original from the page preview instead of painting a box over it", async ({ page }) => {
+  await openInEditor(page);
+  const p = await pagePoint(page, 120, 142); // "Payment terms: 60 days from the date of invoice."
+  await page.mouse.dblclick(p.x, p.y);
+  const box = page.getByRole("textbox", { name: "Text" });
+  await box.fill("Payment terms: 14 days.");
+  await page.keyboard.press("Escape");
+  // No cover box once the preview without the original text has rendered…
+  await expect(page.locator("[data-cover]")).toHaveCount(0);
+  // …and the page image itself no longer has the old text where the line ended.
+  const dark = await page.evaluate(() => {
+    const c = document.querySelector<HTMLCanvasElement>('[data-page-index="0"] canvas')!;
+    const s = c.width / 595.28;
+    const d = c.getContext("2d")!.getImageData(Math.round(220 * s), Math.round(132 * s), Math.round(100 * s), Math.round(14 * s)).data;
+    let n = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] + d[i + 1] + d[i + 2] < 300) n++;
+    return n;
+  });
+  expect(dark).toBe(0);
+  const [text] = await pdfText(await downloadBytes(await saveAndDownload(page)));
+  expect(text).toContain("Payment terms: 14 days.");
+  expect(text).not.toContain("60 days");
+});

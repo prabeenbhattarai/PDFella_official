@@ -70,8 +70,12 @@ function ObjectProps({ obj }: { obj: EditorObject }) {
         {obj.kind === "textEdit" && (
           <div className="space-y-3 rounded-lg bg-surface-2 p-3 text-[13px]">
             <p className="text-ink-3">Original: <span className="text-ink-2">“{obj.original.text}”</span></p>
-            <ColorPicker label="Cover colour (matches the page)" value={obj.cover} onChange={(c) => upC({ cover: c ?? "#ffffff" })} />
-            <p className="flex gap-1.5 text-xs text-ink-3"><Info className="mt-0.5 size-3.5 shrink-0" /> When you save, the original text is removed from the page and your text is written in the font shown above. If a PDF stores text in a way that can’t be removed safely, the original is covered instead.</p>
+            <p className="flex gap-1.5 text-xs text-ink-3"><Info className="mt-0.5 size-3.5 shrink-0" /> The original text is removed from the page itself, so anything underneath (watermarks, colours, images) stays visible, and your text is written in the font shown above.</p>
+            <details className="text-xs text-ink-3">
+              <summary className="cursor-pointer select-none">Fallback cover colour</summary>
+              <p className="mt-2 mb-2">Only used if this PDF stores the text in a way that can’t be removed safely; the original is then covered with this colour.</p>
+              <ColorPicker label="Cover colour" value={obj.cover} onChange={(c) => upC({ cover: c ?? "#ffffff" })} />
+            </details>
           </div>
         )}
         {(obj.kind === "rect" || obj.kind === "ellipse" || obj.kind === "cloud" || obj.kind === "polygon") && (
