@@ -7,7 +7,7 @@ export const fixturePath = (n: string) => path.join(FIXTURES, n);
 
 export async function openInEditor(page: Page, file = "sample.pdf") {
   await page.goto("/editor");
-  await page.getByTestId("file-input").setInputFiles(fixturePath(file));
+  await page.getByTestId("file-input").setInputFiles(path.isAbsolute(file) ? file : fixturePath(file));
   await expect(page.getByTestId("editor")).toBeVisible();
   await expect(page.locator("[data-page-index]").first()).toBeVisible();
   // Wait for fit-to-width zoom to settle so page coordinates are stable.

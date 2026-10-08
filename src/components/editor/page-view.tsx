@@ -5,7 +5,7 @@ import type { PDFPageProxy } from "pdfjs-dist";
 import type { Box, PageRef } from "@/lib/editor/model";
 import { displaySize } from "@/lib/editor/model";
 import { renderPage } from "@/lib/pdf/render";
-import { editsKey, getEditedPage, removableEdits } from "@/lib/pdf/page-preview";
+import { editsKey, getEditedPage, textRemovals } from "@/lib/pdf/page-preview";
 import { useEditor } from "@/lib/editor/store";
 import { useSearch } from "@/lib/editor/search";
 import { PageLayer } from "./page-layer";
@@ -26,7 +26,7 @@ export const PageView = memo(function PageView({ page, index, z, visible }: { pa
   // Edited text is removed from the preview itself (as in the saved file) instead of
   // being covered with a box, so watermarks and backgrounds under it stay visible.
   const objects = useEditor((s) => s.objects[page.id]);
-  const edits = useMemo(() => removableEdits(objects), [objects]);
+  const edits = useMemo(() => textRemovals(objects), [objects]);
   const key = editsKey(edits);
   const [edited, setEdited] = useState<{ key: string; page: PDFPageProxy; removed: Set<string> } | null>(null);
   useEffect(() => {

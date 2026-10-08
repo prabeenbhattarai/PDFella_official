@@ -10,6 +10,8 @@ import type { EditorObject, TextEditObject, TextStyle } from "@/lib/editor/model
 import { fontDisplayName, styleDiff } from "@/lib/editor/detect-style";
 import { FontPicker } from "./font-picker";
 import { applyOriginalStyle, checkStyle } from "./style-choice";
+import { StampMaker, WhiteoutModePicker } from "./stamp-maker";
+import { textRunsIn } from "@/lib/editor/whiteout";
 import { isTextLike } from "@/lib/editor/model";
 import { getDoc } from "@/lib/pdf/docCache";
 import { useSearch } from "@/lib/editor/search";
@@ -92,7 +94,19 @@ function ObjectProps({ obj }: { obj: EditorObject }) {
             {obj.kind !== "ink" && <Switch label="Arrow head" checked={obj.kind === "arrow"} onChange={(v) => upC({ kind: v ? "arrow" : "line" } as Partial<EditorObject>)} />}
           </>
         )}
-        {obj.kind === "whiteout" && <ColorPicker label="Cover colour" value={obj.color} onChange={(c) => upC({ color: c ?? "#ffffff" })} />}
+        {obj.kind === "whiteout" && (
+          <>
+            <WhiteoutModePicker value={obj.mode ?? "cover"} onChange={async (mode) => {
+              if (mode === "text") {
+                const f = findObject(s.objects, obj.id);
+                const ref = f && s.pages.find((pg) => pg.id === f.pageId);
+                upC({ mode, runs: ref ? await textRunsIn(ref, obj) : [] } as Partial<EditorObject>);
+              } else upC({ mode } as Partial<EditorObject>);
+            }} />
+            {obj.mode === "text" && !obj.runs?.length && <p className="text-xs text-warn">There&apos;s no removable text under this box. Move it over text, or use Cover all.</p>}
+            {obj.mode !== "text" && <ColorPicker label="Cover colour" value={obj.color} onChange={(c) => upC({ color: c ?? "#ffffff" })} />}
+          </>
+        )}
         {(obj.kind === "highlight" || obj.kind === "underline" || obj.kind === "strike" || obj.kind === "check" || obj.kind === "cross" || obj.kind === "star" || obj.kind === "dot") && (
           <ColorPicker label="Colour" value={obj.color} onChange={(c) => upC({ color: c ?? "#000000" })} />
         )}
@@ -104,9 +118,10 @@ function ObjectProps({ obj }: { obj: EditorObject }) {
         )}
         {obj.kind === "stamp" && (
           <>
-            <Field label="Stamp text">{(id) => <Input id={id} value={obj.label} maxLength={24} onFocus={commit} onChange={(e) => up({ label: e.target.value })} />}</Field>
-            <div className="flex flex-wrap gap-1">{STAMPS.map((l) => <button key={l} onClick={() => upC({ label: l, color: STAMP_COLORS[l] })} className="rounded border px-1.5 py-0.5 text-[10px] font-bold" style={{ color: STAMP_COLORS[l], borderColor: STAMP_COLORS[l] }}>{l}</button>)}</div>
-            <ColorPicker label="Colour" value={obj.color} onChange={(c) => upC({ color: c ?? "#d0312d" })} />
+            <Field label="Stamp text">{(id) => <Input id={id} value={obj.label} maxLength={32} onFocus={commit} onChange={(e) => up({ label: e.target.value })} />}</Field>
+            <div className="flex flex-wrap gap-1">{STAMPS.map((l) => <button key={l} onClick={() => upC({ label: l, color: STAMP_COLORS[l], textColor: STAMP_COLORS[l], borderColor: STAMP_COLORS[l] } as Partial<EditorObject>)} className="rounded border px-1.5 py-0.5 text-[10px] font-bold" style={{ color: STAMP_COLORS[l], borderColor: STAMP_COLORS[l] }}>{l}</button>)}</div>
+            <ColorPicker label="Text colour" value={obj.textColor ?? obj.color} onChange={(c) => upC({ textColor: c ?? "#d0312d" } as Partial<EditorObject>)} />
+            <ColorPicker label="Outline colour" value={obj.borderColor === undefined ? obj.color : obj.borderColor} onChange={(c) => upC({ borderColor: c } as Partial<EditorObject>)} allowNone />
           </>
         )}
         {(obj.kind === "image" || obj.kind === "signature") && (
@@ -226,14 +241,9 @@ function ToolDefaults() {
       {(stroke && !["underline", "strike"].includes(tool)) && <Slider label="Stroke width" value={style.strokeWidth} min={0.5} max={20} step={0.5} onChange={(strokeWidth) => setStyle({ strokeWidth })} format={(v) => `${v}pt`} />}
       {(["ink", "line", "arrow"].includes(tool) || shape) && <Slider label="Opacity" value={style.opacity} min={0.05} max={1} step={0.05} onChange={(opacity) => setStyle({ opacity })} format={pct} />}
       {tool === "highlight" && <ColorPicker label="Highlight colour" value={style.highlight} onChange={(c) => setStyle({ highlight: c ?? "#ffe14d" })} swatches={["#ffe14d", "#7dd3fc", "#86efac", "#f9a8d4", "#fdba74", "#c4b5fd"]} />}
-      {tool === "whiteout" && <ColorPicker label="Cover colour" value={style.whiteout} onChange={(c) => setStyle({ whiteout: c ?? "#ffffff" })} />}
-      {tool === "stamp" && (
-        <div className="grid grid-cols-2 gap-1.5">
-          {STAMPS.map((l) => (
-            <button key={l} onClick={() => setStyle({ stamp: l })} className={cn("rounded-md border-2 py-1.5 text-[11px] font-black tracking-wider", style.stamp === l ? "ring-2 ring-accent ring-offset-1 ring-offset-surface" : "")} style={{ color: STAMP_COLORS[l], borderColor: STAMP_COLORS[l] }}>{l}</button>
-          ))}
-        </div>
-      )}
+      {tool === "whiteout" && <WhiteoutModePicker value={style.whiteoutMode} onChange={(whiteoutMode) => setStyle({ whiteoutMode })} />}
+      {tool === "whiteout" && style.whiteoutMode === "cover" && <ColorPicker label="Cover colour" value={style.whiteout} onChange={(c) => setStyle({ whiteout: c ?? "#ffffff" })} />}
+      {tool === "stamp" && <StampMaker />}
       {tool === "field" && (
         <Select aria-label="Field type" value={style.fieldType} onChange={(e) => setStyle({ fieldType: e.target.value as typeof style.fieldType })}>
           <option value="text">Text field</option>

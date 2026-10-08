@@ -19,6 +19,11 @@ export interface ToolStyle {
   whiteout: string;
   text: TextStyle;
   stamp: string;
+  /** Text and outline colours for new stamps (outline null = none). */
+  stampText: string;
+  stampBorder: string | null;
+  /** Whiteout: cover everything, or remove only the text under the box. */
+  whiteoutMode: "cover" | "text";
   fieldType: "text" | "checkbox" | "radio" | "dropdown" | "date" | "signature";
 }
 
@@ -132,6 +137,9 @@ const initialStyle: ToolStyle = {
   whiteout: "#ffffff",
   text: defaultTextStyle,
   stamp: "APPROVED",
+  stampText: "#2e9e5b",
+  stampBorder: "#2e9e5b",
+  whiteoutMode: "cover",
   fieldType: "text",
 };
 

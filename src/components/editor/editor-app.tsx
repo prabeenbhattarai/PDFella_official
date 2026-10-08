@@ -31,7 +31,7 @@ import { SearchBar } from "./search-bar";
 import { TOOL_DEFS } from "./tools";
 import { ToolHint } from "./tool-hint";
 import { armAsset, buildPdf, printDocument, readImage } from "./actions";
-import { getEditedPage, removableEdits } from "@/lib/pdf/page-preview";
+import { getEditedPage, textRemovals } from "@/lib/pdf/page-preview";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
@@ -171,7 +171,7 @@ export function EditorApp() {
   // Dev/test hook (never shipped to production): lets Playwright inspect exported bytes.
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
-    (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf, getEditedPage, removableEdits };
+    (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf, getEditedPage, textRemovals };
   }, []);
 
   // Keyboard shortcuts.

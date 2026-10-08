@@ -24,7 +24,7 @@ export const TOOL_DEFS: Record<ToolId, ToolDef> = {
   hand: { id: "hand", short: "Pan", label: "Hand", icon: Hand, key: "h", hint: "Drag to move around the page", gesture: "none" },
   editText: { id: "editText", short: "Edit text", label: "Edit text", icon: TextCursor, key: "e", hint: "Click any existing word or sentence in the PDF to change it", gesture: "click" },
   text: { id: "text", short: "Add text", label: "Add text", icon: Type, key: "t", hint: "Click to add a text box, or drag to set its width", gesture: "box" },
-  whiteout: { id: "whiteout", short: "Whiteout", label: "Whiteout", icon: Eraser, key: "w", hint: "Drag to cover an area", gesture: "box", sticky: true },
+  whiteout: { id: "whiteout", short: "Whiteout", label: "Whiteout", icon: Eraser, key: "w", hint: "Drag over text or an area to white it out", gesture: "box", sticky: true },
   highlight: { id: "highlight", short: "Highlight", label: "Highlight", icon: Highlighter, key: "m", hint: "Drag across text to highlight it", gesture: "box", sticky: true },
   underline: { id: "underline", short: "Underline", label: "Underline", icon: Underline, key: "u", hint: "Drag across text to underline it", gesture: "box", sticky: true },
   strike: { id: "strike", short: "Strike", label: "Strikethrough", icon: Strikethrough, hint: "Drag across text to strike it through", gesture: "box", sticky: true },

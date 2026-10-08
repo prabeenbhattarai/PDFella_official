@@ -11,11 +11,12 @@ import { detectOriginalStyle, styleDiff } from "@/lib/editor/detect-style";
 import { ensureStyleFonts, fontMetrics } from "@/lib/fonts/loader";
 import { toast } from "@/components/ui/toast";
 import { StyleChoice, applyOriginalStyle } from "./style-choice";
+import { runsUnder, textRunsIn, unionBox } from "@/lib/editor/whiteout";
 import { subBox } from "@/lib/editor/search";
 import { lineGroup, wordAt } from "@/lib/editor/text-lines";
 import { uid } from "@/lib/utils";
 import { ObjectView } from "./object-view";
-import { TOOL_DEFS, STAMP_COLORS } from "./tools";
+import { TOOL_DEFS } from "./tools";
 
 type Gesture =
   | { type: "box"; tool: ToolId; start: Pt; cur: Pt }
@@ -133,6 +134,23 @@ export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; 
     if (click && !MARKUP.includes(t) && t !== "whiteout") b = { x: b.x - (t === "text" ? 0 : DEF.w / 2), y: b.y - (t === "text" ? 0 : DEF.h / 2), w: DEF.w, h: DEF.h };
     if (shift && (t === "rect" || t === "ellipse")) { const m = Math.max(b.w, b.h); b = { ...b, w: m, h: m }; }
 
+    // Text-only whiteout: delete the real PDF text under the box; images/watermarks stay.
+    if (t === "whiteout" && st.whiteoutMode === "text") {
+      const allRuns = runs ?? (await getTextRuns(page).catch(() => []));
+      const hit = click ? allRuns.filter((r) => r.angle % 180 === 0 && intersects(r.box, { x: b.x - 1, y: b.y - 1, w: 2, h: 2 })) : runsUnder(allRuns, b);
+      if (!hit.length) {
+        if (!click) toast.info("No text to remove here", "Text-only whiteout removes real PDF text. Text that's part of an image (like a scan) can't be removed this way: use Cover everything instead.");
+        return;
+      }
+      const u = unionBox(hit.map((r) => r.box));
+      const box = click ? u : unionBox([b, u]);
+      const s = useEditor.getState();
+      s.commit();
+      const obj: EditorObject = { ...common, kind: "whiteout", color: st.whiteout, mode: "text", runs: hit.map((r) => r.pdf), x: box.x - 1, y: box.y, w: box.w + 2, h: box.h };
+      useEditor.setState((x) => ({ objects: { ...x.objects, [page.id]: [...(x.objects[page.id] ?? []), obj] }, selection: [] }));
+      return finishCreate(t);
+    }
+
     if (MARKUP.includes(t) || t === "whiteout") {
       const allRuns = runs ?? (await getTextRuns(page).catch(() => []));
       const snapped = t === "whiteout" && !click ? [] : snapToText(allRuns, click ? { x: b.x - 1, y: b.y - 1, w: 2, h: 2 } : b, click);
@@ -195,8 +213,10 @@ export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; 
       return;
     }
     if (t === "stamp") {
-      const label = st.stamp;
-      add({ ...common, kind: "stamp", label, color: STAMP_COLORS[label] ?? st.stroke, x: x - 70, y: y - 20, w: 140, h: 40, rotation: -4 });
+      const label = st.stamp.trim() || "APPROVED";
+      // Width grows with the text so custom stamps stay readable.
+      const w = Math.max(110, Math.min(380, 44 + label.length * 13));
+      add({ ...common, kind: "stamp", label, color: st.stampText, textColor: st.stampText, borderColor: st.stampBorder, x: x - w / 2, y: y - 20, w, h: 40, rotation: -4 });
     } else if (t === "check" || t === "cross" || t === "star") {
       add({ ...common, kind: t, color: t === "check" ? "#2e9e5b" : t === "cross" ? "#d0312d" : "#e8b10c", x: x - 11, y: y - 11, w: 22, h: 22 });
     } else if (t === "note") {
@@ -484,6 +504,14 @@ export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; 
     if (g.type === "move" && !g.committed && g.reclick) {
       useEditor.getState().setEditing(g.reclick);
       return;
+    }
+    // A text-only whiteout that was moved or resized removes the text under its new position.
+    if ((g.type === "move" || g.type === "resize") && g.committed) {
+      const ids = g.type === "move" ? g.origs.map((o) => o.id) : [g.id];
+      for (const id of ids) {
+        const o = findObject(useEditor.getState().objects, id)?.obj;
+        if (o?.kind === "whiteout" && o.mode === "text") void textRunsIn(page, o).then((r) => useEditor.getState().updateObject(id, { runs: r }));
+      }
     }
     if (g.type === "box") {
       const b = normalizeBox(g.start[0], g.start[1], g.cur[0], g.cur[1]);

@@ -27,7 +27,7 @@ import {
 } from "./geometry";
 import { brand } from "../brand";
 import { openPdf } from "./pdfjs";
-import { removeTextRuns } from "./content-edit";
+import { applyTextRemovals, textRemovals } from "./page-preview";
 
 export interface ExportInput {
   docName: string;
@@ -132,18 +132,9 @@ export async function exportDocument(input: ExportInput, opts: ExportOptions = {
     const crop = page.getCropBox();
     const frame: PageFrame = { rotation: totalRotation(ref), box: crop };
     const ctx: DrawCtx = { doc, page, frame, font, images, assets: input.assets, removed: new Set(), embedded };
-    // Content edits first: delete original glyphs from the page's own content stream.
-    const edits = (input.objects[ref.id] ?? []).filter((o): o is TextEditObject => o.kind === "textEdit" && o.strategy === "remove" && !!(o.original.pdfRuns?.length || o.original.pdf));
-    if (edits.length) {
-      const groups = edits.map((e) => e.original.pdfRuns?.length ? e.original.pdfRuns : [e.original.pdf!]);
-      const ok = removeTextRuns(doc, page, groups.flat());
-      // An edit counts as removed only if every run of its line was removed; otherwise it is also covered.
-      let k = 0;
-      edits.forEach((e, i) => {
-        const all = groups[i].every(() => ok[k++]);
-        if (all) ctx.removed.add(e.id);
-      });
-    }
+    // Content edits first: delete original glyphs (edited lines, text-only whiteouts)
+    // from the page's own content stream. Anything that can't be removed is covered.
+    for (const id of applyTextRemovals(doc, page, textRemovals(input.objects[ref.id]))) ctx.removed.add(id);
     for (const obj of input.objects[ref.id] ?? []) {
       if (obj.kind === "redact") {
         redactions.push({ pageIndex: i, rect: rectToPdf(frame, obj), fill: obj.fill });
@@ -226,6 +217,8 @@ async function drawObject(ctx: DrawCtx, obj: EditorObject) {
   const { frame, page } = ctx;
   switch (obj.kind) {
     case "whiteout":
+      // Text-only whiteout: the text was deleted above; nothing is painted (images stay visible).
+      if (obj.mode === "text" && (ctx.removed.has(obj.id) || !obj.runs?.length)) return;
       return drawPath(ctx, rectPath(pb(), obj.w, obj.h).toString(), { fill: obj.color, opacity: obj.opacity });
     case "highlight":
       return drawPath(ctx, rectPath(pb(), obj.w, obj.h).toString(), { fill: obj.color, opacity: obj.opacity, multiply: true });
@@ -271,15 +264,18 @@ async function drawObject(ctx: DrawCtx, obj: EditorObject) {
     case "dot":
       return drawPath(ctx, ellipsePath(pb(), obj.w, obj.h).toString(), { fill: obj.color, opacity: obj.opacity });
     case "stamp": {
-      const sw = Math.max(1.5, Math.min(obj.w, obj.h) * 0.06);
-      const inset = new PathBuilder((x, y) => tf(x + sw / 2, y + sw / 2));
-      drawPath(ctx, roundedRectPath(inset, obj.w - sw, obj.h - sw, Math.min(obj.h * 0.18, 8)).toString(), { stroke: obj.color, strokeWidth: sw, opacity: obj.opacity });
+      const border = obj.borderColor === undefined ? obj.color : obj.borderColor;
+      const sw = border ? Math.max(1.5, Math.min(obj.w, obj.h) * 0.06) : 0;
+      if (border) {
+        const inset = new PathBuilder((x, y) => tf(x + sw / 2, y + sw / 2));
+        drawPath(ctx, roundedRectPath(inset, obj.w - sw, obj.h - sw, Math.min(obj.h * 0.18, 8)).toString(), { stroke: border, strokeWidth: sw, opacity: obj.opacity });
+      }
       const f = await ctx.font("Helvetica", true, false);
-      const label = toWinAnsi(obj.label.toUpperCase());
-      const size = Math.min(obj.h * 0.5, ((obj.w - sw * 4) / Math.max(1, f.widthOfTextAtSize(label, 1))));
+      const label = toWinAnsi(obj.label);
+      const size = Math.min(obj.h * 0.5, ((obj.w - Math.max(sw, 1.5) * 4) / Math.max(1, f.widthOfTextAtSize(label, 1))));
       const tw = f.widthOfTextAtSize(label, size);
       const [ax, ay] = toPdf(frame, ...tf((obj.w - tw) / 2, obj.h / 2 + size * 0.36));
-      page.drawText(label, { x: ax, y: ay, size, font: f, color: color(obj.color), opacity: obj.opacity, rotate: degrees(frame.rotation - obj.rotation) });
+      page.drawText(label, { x: ax, y: ay, size, font: f, color: color(obj.textColor ?? obj.color), opacity: obj.opacity, rotate: degrees(frame.rotation - obj.rotation) });
       return;
     }
     case "image":

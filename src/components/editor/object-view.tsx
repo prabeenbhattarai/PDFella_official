@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { StickyNote, Link2, PenLine, CheckSquare, CircleDot, ChevronDown, Calendar, Type as TypeIcon } from "lucide-react";
-import type { EditorObject, TextObject, TextEditObject } from "@/lib/editor/model";
+import type { EditorObject, StampObject, TextObject, TextEditObject } from "@/lib/editor/model";
 import { useEditor } from "@/lib/editor/store";
 import { cn } from "@/lib/utils";
 import { ensureStyleFonts, fontStack } from "@/lib/fonts/loader";
@@ -127,6 +127,21 @@ function TextBox({ obj, z, editing }: { obj: TextObject | TextEditObject; z: num
   return <div ref={ref} className="absolute inset-x-0 top-0 select-none" style={textCss(obj, z)}>{obj.text || "​"}</div>;
 }
 
+/** Stamp artwork (also used for previews in the panel). */
+export function StampArt({ obj }: { obj: Pick<StampObject, "w" | "h" | "label" | "color" | "textColor" | "borderColor"> }) {
+  const border = obj.borderColor === undefined ? obj.color : obj.borderColor;
+  const sw = border ? Math.max(1.5, Math.min(obj.w, obj.h) * 0.06) : 0;
+  const label = obj.label;
+  const size = Math.min(obj.h * 0.5, (obj.w - Math.max(sw, 1.5) * 4) / Math.max(0.01, measureBold(label)));
+  const inset = new PathBuilder((x, y) => [x + sw / 2, y + sw / 2]);
+  return (
+    <Svg w={obj.w} h={obj.h}>
+      {border && <path d={roundedRectPath(inset, obj.w - sw, obj.h - sw, Math.min(obj.h * 0.18, 8)).toString()} fill="none" stroke={border} strokeWidth={sw} />}
+      <text x={obj.w / 2} y={obj.h / 2 + size * 0.36} textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontWeight="bold" fontSize={size} fill={obj.textColor ?? obj.color}>{label}</text>
+    </Svg>
+  );
+}
+
 const fieldIcons = { text: TypeIcon, date: Calendar, checkbox: CheckSquare, radio: CircleDot, dropdown: ChevronDown, signature: PenLine };
 
 export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, redactPreview, interactive, covered = true }: {
@@ -155,7 +170,9 @@ export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, 
   let extra: React.ReactNode = null;
   switch (obj.kind) {
     case "whiteout":
-      content = <div className="absolute inset-0" style={{ background: obj.color }} />;
+      // Text-only whiteouts paint nothing once their text is removed from the page
+      // preview (until then, or if it can't be removed, they cover it).
+      if (obj.mode !== "text" || (covered && obj.runs?.length)) content = <div className="absolute inset-0" style={{ background: obj.color }} />;
       break;
     case "highlight":
       content = <div className="absolute inset-0" style={{ background: obj.color, opacity: obj.opacity, mixBlendMode: "multiply" }} />;
@@ -217,19 +234,9 @@ export const ObjectView = memo(function ObjectView({ obj, z, selected, editing, 
     case "dot":
       content = <Svg w={obj.w} h={obj.h}><path d={ellipsePath(local, obj.w, obj.h).toString()} fill={obj.color} /></Svg>;
       break;
-    case "stamp": {
-      const sw = Math.max(1.5, Math.min(obj.w, obj.h) * 0.06);
-      const label = obj.label.toUpperCase();
-      const size = Math.min(obj.h * 0.5, (obj.w - sw * 4) / Math.max(0.01, measureBold(label)));
-      const inset = new PathBuilder((x, y) => [x + sw / 2, y + sw / 2]);
-      content = (
-        <Svg w={obj.w} h={obj.h}>
-          <path d={roundedRectPath(inset, obj.w - sw, obj.h - sw, Math.min(obj.h * 0.18, 8)).toString()} fill="none" stroke={obj.color} strokeWidth={sw} />
-          <text x={obj.w / 2} y={obj.h / 2 + size * 0.36} textAnchor="middle" fontFamily="Helvetica, Arial, sans-serif" fontWeight="bold" fontSize={size} fill={obj.color}>{label}</text>
-        </Svg>
-      );
+    case "stamp":
+      content = <StampArt obj={obj} />;
       break;
-    }
     case "image":
     case "signature": {
       const src = assets[obj.asset];

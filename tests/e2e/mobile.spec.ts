@@ -16,7 +16,14 @@ test("mobile: tap PDF text to edit it in a sheet above the keyboard", async ({ p
   await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
   const pg = page.locator('[data-page-index="0"]');
   await expect(pg).toBeVisible();
-  await page.waitForTimeout(800);
+  // Wait for fit-to-width zoom to settle so the tap lands on the line.
+  let last = -1;
+  await expect.poll(async () => {
+    const w = (await pg.boundingBox())?.width ?? 0;
+    const stable = w > 0 && w === last;
+    last = w;
+    return stable;
+  }, { intervals: [300] }).toBe(true);
   const b = (await pg.boundingBox())!;
   const z = b.width / 595.28;
   await page.touchscreen.tap(b.x + 120 * z, b.y + 142 * z); // "Payment terms: 60 days…"

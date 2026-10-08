@@ -25,6 +25,9 @@ export type FontFamily = string;
 
 export interface Box { x: number; y: number; w: number; h: number }
 
+/** A run of original PDF text in the source page's user space (origin, direction, extent). */
+export interface PdfRun { x: number; y: number; dx: number; dy: number; width: number; size: number }
+
 interface Base extends Box {
   id: string;
   /** Clockwise rotation in degrees, about the box centre. */
@@ -63,9 +66,9 @@ export interface TextEditObject extends Base, TextStyle {
     box: Box;
     fontName: string;
     /** Run origin/direction in the source page's user space, used to delete the original glyphs. */
-    pdf?: { x: number; y: number; dx: number; dy: number; width: number; size: number };
+    pdf?: PdfRun;
     /** All runs that make up the edited line (a sentence is often stored as several runs). */
-    pdfRuns?: { x: number; y: number; dx: number; dy: number; width: number; size: number }[];
+    pdfRuns?: PdfRun[];
   };
   /** Colour used to cover the original glyphs in the overlay strategy. */
   cover: string;
@@ -87,7 +90,17 @@ export interface TextEditObject extends Base, TextStyle {
   strategy: "remove" | "overlay";
 }
 
-export interface WhiteoutObject extends Base { kind: "whiteout"; color: string }
+export interface WhiteoutObject extends Base {
+  kind: "whiteout";
+  color: string;
+  /**
+   * cover — paint over everything in the box (text, images, backgrounds)
+   * text  — delete only the PDF text under the box; images and watermarks stay visible
+   */
+  mode?: "cover" | "text";
+  /** text mode: the original text runs to delete. */
+  runs?: PdfRun[];
+}
 export interface MarkupObject extends Base { kind: "highlight" | "underline" | "strike"; color: string }
 export interface RedactObject extends Base { kind: "redact"; fill: string; label?: string }
 
@@ -126,7 +139,15 @@ export interface ImageObject extends Base {
 
 export interface SymbolObject extends Base { kind: "check" | "cross" | "star" | "dot"; color: string }
 
-export interface StampObject extends Base { kind: "stamp"; label: string; color: string }
+export interface StampObject extends Base {
+  kind: "stamp";
+  label: string;
+  /** Default colour (text and outline when not set separately). */
+  color: string;
+  textColor?: string;
+  /** Outline colour; null = no outline. */
+  borderColor?: string | null;
+}
 
 export interface NoteObject extends Base { kind: "note"; text: string; color: string; author: string }
 
