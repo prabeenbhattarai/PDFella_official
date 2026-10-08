@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { RotateCcw, RotateCw, Copy, Trash2, FilePlus2, FileDown, FileInput, ImagePlus } from "lucide-react";
+import { RotateCcw, RotateCw, Copy, Trash2, FilePlus2, FileDown, FileInput, ImagePlus, Plus } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import type { PageRef } from "@/lib/editor/model";
 import { displaySize } from "@/lib/editor/model";
@@ -12,7 +12,7 @@ import { insertFile } from "@/lib/editor/load";
 import { downloadBlob, sanitizeFileName, cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
-import { scrollToPage } from "./canvas";
+import { insertBlankAt, scrollToPage } from "./canvas";
 
 const Thumb = memo(function Thumb({ page, width }: { page: PageRef; width: number }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -37,6 +37,24 @@ const Thumb = memo(function Thumb({ page, width }: { page: PageRef; width: numbe
     </div>
   );
 });
+
+/** Hover target between thumbnails: a line with a "+" that inserts a blank page there (like slide decks). */
+function InsertGap({ at, hidden }: { at: number; hidden: boolean }) {
+  const label = at === 0 ? "Insert blank page before page 1" : `Insert blank page after page ${at}`;
+  return (
+    <div className={cn("group/gap relative flex h-4 items-center justify-center", hidden && "invisible")} data-insert-gap={at}>
+      <div className="absolute inset-x-2 h-0.5 rounded-full bg-accent opacity-0 transition group-hover/gap:opacity-100" aria-hidden />
+      <button
+        onClick={() => insertBlankAt(at)}
+        aria-label={label}
+        title={label}
+        className="relative z-10 flex size-5 items-center justify-center rounded-full border border-accent bg-surface text-accent opacity-0 shadow-sm transition group-hover/gap:opacity-100 hover:scale-110 hover:bg-accent hover:text-white focus-visible:opacity-100 [@media(hover:none)]:opacity-70"
+      >
+        <Plus className="size-3" strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+}
 
 export function Thumbnails() {
   const pages = useEditor((s) => s.pages);
@@ -107,7 +125,7 @@ export function Thumbnails() {
       <div className="flex items-center justify-between border-b border-border px-3 py-2">
         <p className="text-xs font-semibold text-ink-2">Pages <span className="font-normal text-ink-3">· {pages.length}</span></p>
         <div className="flex">
-          <Button variant="ghost" size="icon-sm" title="Insert blank page" aria-label="Insert blank page" onClick={() => s().insertBlank(current + 1)}><FilePlus2 /></Button>
+          <Button variant="ghost" size="icon-sm" title="Insert blank page after the current page" aria-label="Insert blank page" onClick={() => insertBlankAt(current + 1)}><FilePlus2 /></Button>
           <Button variant="ghost" size="icon-sm" title="Insert PDF or image pages" aria-label="Insert PDF or image pages" onClick={() => fileInput.current?.click()}><FileInput /></Button>
         </div>
         <input ref={fileInput} type="file" multiple accept=".pdf,image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { insert(e.target.files); e.target.value = ""; }} aria-label="Insert files" />
@@ -120,7 +138,7 @@ export function Thumbnails() {
         <Button variant="ghost" size="icon-sm" title="Delete" aria-label="Delete selected pages" className="hover:text-danger" disabled={pages.length <= targetIds().length} onClick={() => s().deletePages(targetIds())}><Trash2 /></Button>
       </div>
       <div
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+        className="flex-1 overflow-y-auto px-3 py-2"
         role="listbox"
         aria-label="Pages"
         aria-multiselectable
@@ -130,8 +148,9 @@ export function Thumbnails() {
           const isSel = selected.includes(p.id);
           const count = objects[p.id]?.length ?? 0;
           return (
+            <div key={p.id}>
+            <InsertGap at={i} hidden={!!dragId} />
             <div
-              key={p.id}
               role="option"
               aria-selected={isSel}
               aria-label={`Page ${i + 1}${count ? `, ${count} edits` : ""}`}
@@ -151,6 +170,8 @@ export function Thumbnails() {
                 <Thumb page={p} width={118} />
               </div>
               <span className="mt-1.5 text-[11px] tabular-nums text-ink-3">{i + 1}{count ? <span className="ml-1 rounded bg-accent/15 px-1 text-accent">{count}</span> : null}</span>
+            </div>
+            {i === pages.length - 1 && <InsertGap at={pages.length} hidden={!!dragId} />}
             </div>
           );
         })}

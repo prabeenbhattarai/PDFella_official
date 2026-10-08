@@ -32,6 +32,7 @@ import { TOOL_DEFS } from "./tools";
 import { ToolHint } from "./tool-hint";
 import { armAsset, buildPdf, printDocument, readImage } from "./actions";
 import { getEditedPage, textRemovals } from "@/lib/pdf/page-preview";
+import { EditorTour, tourSeen } from "./editor-tour";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
@@ -50,6 +51,7 @@ export function EditorApp() {
   const [sigOpen, setSigOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [showThumbs, setShowThumbs] = useState(true);
   const [showPanel, setShowPanel] = useState(true);
   const [mobileThumbs, setMobileThumbs] = useState(false);
@@ -174,6 +176,13 @@ export function EditorApp() {
     (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf, getEditedPage, textRemovals };
   }, []);
 
+  // First visit: offer the guided tour once a document is open (never under test automation).
+  useEffect(() => {
+    if (status !== "ready" || tourSeen() || navigator.webdriver) return;
+    const t = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(t);
+  }, [status]);
+
   // Keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -287,6 +296,7 @@ export function EditorApp() {
         onNew={startNew}
         onOpen={() => openInput.current?.click()}
         onShortcuts={() => setKeysOpen(true)}
+        onTour={() => setTourOpen(true)}
         showThumbs={showThumbs}
         showPanel={showPanel}
         toggleThumbs={() => setShowThumbs((v) => !v)}
@@ -340,6 +350,7 @@ export function EditorApp() {
       }} />
       <SaveDialog open={saveOpen} onClose={() => setSaveOpen(false)} onNew={startNew} />
       <ShortcutsDialog open={keysOpen} onClose={() => setKeysOpen(false)} />
+      <EditorTour open={tourOpen} onClose={() => { setTourOpen(false); window.dispatchEvent(new Event("pdfella:tip-seen")); }} />
     </div>
   );
 }

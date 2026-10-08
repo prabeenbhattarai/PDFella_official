@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
-  Undo2, Redo2, ZoomIn, ZoomOut, Search, Printer, Maximize, Download, Save, MoreHorizontal, Keyboard, FilePlus2,
+  Undo2, Redo2, ZoomIn, ZoomOut, Search, Printer, Maximize, Download, Save, MoreHorizontal, Keyboard, FilePlus2, Sparkles,
   PanelLeft, PanelRight, MoveHorizontal, Scan, FolderOpen, Check,
 } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
@@ -19,13 +19,14 @@ interface Props {
   onNew: () => void;
   onOpen: () => void;
   onShortcuts: () => void;
+  onTour: () => void;
   showThumbs: boolean;
   showPanel: boolean;
   toggleThumbs: () => void;
   togglePanel: () => void;
 }
 
-export function TopBar({ onSave, onNew, onOpen, onShortcuts, showThumbs, showPanel, toggleThumbs, togglePanel }: Props) {
+export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs, showPanel, toggleThumbs, togglePanel }: Props) {
   const docName = useEditor((s) => s.docName);
   const zoom = useEditor((s) => s.zoom);
   const fit = useEditor((s) => s.fit);
@@ -94,6 +95,7 @@ export function TopBar({ onSave, onNew, onOpen, onShortcuts, showThumbs, showPan
                 { icon: Maximize, label: "Full screen", on: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
                 { icon: PanelRight, label: showPanel ? "Hide properties" : "Show properties", on: togglePanel },
                 { icon: Keyboard, label: "Keyboard shortcuts", on: onShortcuts },
+                { icon: Sparkles, label: "Take the tour", on: onTour },
               ].map(({ icon: Icon, label, on }) => (
                 <button key={label} role="menuitem" onClick={on} className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-surface-2"><Icon className="size-4 text-ink-3" /> {label}</button>
               ))}

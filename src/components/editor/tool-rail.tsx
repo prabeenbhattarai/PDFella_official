@@ -129,6 +129,7 @@ export function ToolRail({ onPick, orientation }: Props) {
               aria-haspopup={group ? "menu" : undefined}
               aria-expanded={group ? open === i : undefined}
               data-tool={id}
+              data-tour={group ? `group-${group.name}` : `tool-${id}`}
               className={cn(
                 "relative flex flex-col items-center justify-center gap-0.5 rounded-lg text-ink-2 transition hover:bg-surface-2 hover:text-ink",
                 vertical ? "h-[52px] w-[64px]" : "h-[50px] w-[58px]",

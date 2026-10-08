@@ -19,7 +19,11 @@ export function ToolHint() {
   const [tipSeen, setTipSeen] = useState(true);
   const touch = useTouchEditing();
   useEffect(() => {
-    try { setTipSeen(localStorage.getItem(TIP_KEY) === "1"); } catch { setTipSeen(false); }
+    const read = () => { try { setTipSeen(localStorage.getItem(TIP_KEY) === "1"); } catch { setTipSeen(false); } };
+    read();
+    // The guided tour covers this tip; it marks it seen when it closes.
+    window.addEventListener("pdfella:tip-seen", read);
+    return () => window.removeEventListener("pdfella:tip-seen", read);
   }, []);
   const dismissTip = () => {
     setTipSeen(true);

@@ -5,6 +5,7 @@ import { useEditor } from "@/lib/editor/store";
 import { displaySize } from "@/lib/editor/model";
 import { useSearch } from "@/lib/editor/search";
 import { PageView } from "./page-view";
+import { Plus } from "lucide-react";
 
 const GAP = 24;
 
@@ -139,6 +140,16 @@ export function DocumentCanvas() {
           <div key={p.id} data-page-id={p.id} data-index={i} className="relative">
             <PageView page={p} index={i} z={zoom} visible={visible.has(p.id)} />
             <p className="mt-1.5 text-center text-[11px] text-ink-3 select-none">{i + 1} / {pages.length}</p>
+            {/* The gap below each page inserts a blank page there (hover on desktop, always shown on touch). */}
+            <div className="group/add absolute inset-x-0 top-full flex items-center justify-center" style={{ height: GAP }}>
+              <button
+                onClick={() => insertBlankAt(i + 1)}
+                aria-label={`Insert blank page after page ${i + 1}`}
+                className="flex h-6 items-center gap-1 rounded-full border border-accent/60 bg-surface px-2.5 text-[11px] font-semibold text-accent opacity-0 shadow-sm transition group-hover/add:opacity-100 hover:bg-accent hover:text-white focus-visible:opacity-100 [@media(hover:none)]:opacity-80"
+              >
+                <Plus className="size-3" strokeWidth={2.5} /> Add page
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -150,4 +161,10 @@ export function scrollToPage(i: number) {
   const sc = document.getElementById("document-scroller");
   const el = sc?.querySelector<HTMLElement>(`[data-index="${i}"]`);
   if (sc && el) sc.scrollTo({ top: el.offsetTop - 16, behavior: "smooth" });
+}
+
+/** Insert a blank page at `at` and bring it into view. */
+export function insertBlankAt(at: number) {
+  useEditor.getState().insertBlank(at);
+  requestAnimationFrame(() => scrollToPage(at));
 }
