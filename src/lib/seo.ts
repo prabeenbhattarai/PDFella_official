@@ -68,9 +68,11 @@ const organization = () => ({
   "@type": "Organization",
   "@id": absolute("/#organization"),
   name: brand.name,
+  alternateName: brand.alternateNames,
   url: absolute("/"),
   logo: { "@type": "ImageObject", url: absolute("/icon.svg") },
   email: brand.supportEmail,
+  ...(brand.sameAs.length ? { sameAs: brand.sameAs } : {}),
 });
 
 export function siteJsonLd() {
@@ -83,6 +85,8 @@ export function siteJsonLd() {
         "@id": absolute("/#website"),
         url: absolute("/"),
         name: brand.name,
+        // Google reads WebSite name/alternateName for the site name shown in results.
+        alternateName: brand.alternateNames,
         description: brand.description,
         publisher: { "@id": absolute("/#organization") },
         inLanguage: "en",

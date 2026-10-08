@@ -15,6 +15,7 @@ import { jsonLdScript, siteJsonLd } from "@/lib/seo";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
 
 const faq = [
+  { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no sign-up and no watermark.` },
   { q: `Is ${brand.name} free to use?`, a: "Yes. Editing, signing, organising and most conversions are free with generous limits and no account. Heavier cloud processing (OCR, Office conversion) has a daily allowance." },
   { q: "Do I need to create an account?", a: "No. Drop a file and start working. Accounts will be optional and only add conveniences like saved signatures and document history." },
   { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` },

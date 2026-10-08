@@ -11,7 +11,7 @@ export function Footer() {
       <div className="wrap grid gap-10 py-16 md:grid-cols-[1.6fr_repeat(4,1fr)]">
         <div className="space-y-3">
           <Logo />
-          <p className="max-w-xs text-sm leading-relaxed text-ink-2">{brand.description}</p>
+          <p className="max-w-xs text-sm leading-relaxed text-ink-2">{brand.name} (also written {brand.alternateNames[0]}) is a free online PDF editor. {brand.description}</p>
         </div>
         {cols.map((c) => (
           <div key={c}>

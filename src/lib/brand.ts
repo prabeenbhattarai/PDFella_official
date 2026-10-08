@@ -13,5 +13,12 @@ export const brand = {
   description:
     "Edit, convert, sign, compress, organise and protect your documents online, without installing software or creating an account.",
   url: siteUrl,
+  /** Other ways people write the name (structured data `alternateName`, not keyword stuffing). */
+  alternateNames: ["PDF Ella", "PDF-Ella", "Pdfella"],
+  /**
+   * Official profiles (LinkedIn, X, Facebook, Product Hunt, GitHub…). Listed as `sameAs`
+   * so search engines connect them to the brand. Add each URL once the profile exists.
+   */
+  sameAs: [] as string[],
   supportEmail: "support@pdfella.com",
 } as const;
