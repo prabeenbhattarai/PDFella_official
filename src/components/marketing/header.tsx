@@ -40,7 +40,7 @@ function MenuItem({ t, onNavigate }: { t: Tool; onNavigate: () => void }) {
 }
 
 /** Desktop dropdown: opens on hover (with a short intent delay), on click and with the keyboard. */
-function NavMenu({ label, active, open, onOpen, onClose, children, wide }: { label: string; active?: boolean; open: boolean; onOpen: () => void; onClose: () => void; children: ReactNode; wide?: boolean }) {
+function NavMenu({ label, active, open, onOpen, onClose, children, wide, compact }: { label: string; active?: boolean; open: boolean; onOpen: () => void; onClose: () => void; children: ReactNode; wide?: boolean; compact?: boolean }) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const enter = () => { clearTimeout(timer.current); timer.current = setTimeout(onOpen, 60); };
   const leave = () => { clearTimeout(timer.current); timer.current = setTimeout(onClose, 160); };
@@ -48,7 +48,7 @@ function NavMenu({ label, active, open, onOpen, onClose, children, wide }: { lab
   return (
     <div className="relative" onMouseEnter={enter} onMouseLeave={leave}>
       <button
-        className={cn("relative flex h-16 items-center gap-1.5 px-4 text-[15px] font-semibold transition-colors", open || active ? "text-accent" : "text-ink hover:text-accent")}
+        className={cn("relative flex items-center gap-1.5 font-semibold transition-all duration-300", compact ? "h-14 px-3 text-[14px]" : "h-16 px-4 text-[15px]", open || active ? "text-accent" : "text-ink hover:text-accent")}
         aria-expanded={open}
         aria-haspopup="true"
         // A click always opens. It never toggles shut, so "hover, then click" keeps the menu open.
@@ -57,10 +57,10 @@ function NavMenu({ label, active, open, onOpen, onClose, children, wide }: { lab
       >
         {label}
         <ChevronDown className={cn("size-4 opacity-70 transition-transform", open && "rotate-180")} aria-hidden />
-        <span className={cn("absolute inset-x-4 bottom-0 h-0.5 rounded-full bg-accent transition-opacity", open || active ? "opacity-100" : "opacity-0")} aria-hidden />
+        <span className={cn("absolute bottom-0 h-0.5 rounded-full bg-accent transition-opacity", compact ? "inset-x-3 bottom-2" : "inset-x-4", open || active ? "opacity-100" : "opacity-0")} aria-hidden />
       </button>
       {open && (
-        <div className={cn(wide ? "fixed top-16 left-1/2 -translate-x-1/2 pt-px" : "absolute top-full left-1/2 -translate-x-1/2 pt-px")} onMouseEnter={() => clearTimeout(timer.current)} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
+        <div className={cn(wide ? cn("fixed left-1/2 -translate-x-1/2", compact ? "top-[76px]" : "top-16 pt-px") : cn("absolute top-full left-1/2 -translate-x-1/2", compact ? "pt-2" : "pt-px"))} onMouseEnter={() => clearTimeout(timer.current)} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
           <div className="rounded-xl border border-border bg-surface p-2 shadow-[0_24px_48px_-12px_rgb(0_0_0/.18),0_2px_6px_rgb(0_0_0/.04)] animate-pop">{children}</div>
         </div>
       )}
@@ -86,72 +86,95 @@ export function Header() {
   }, [menu]);
   const current = getTool(pathname.replace(/^\//, ""));
 
+  // At the top the bar blends into the hero; once the page scrolls it becomes a compact,
+  // centred glass bar so content shows through underneath.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => { setMenu(null); setMobile(false); }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/70 bg-bg/85 backdrop-blur-xl">
-      <div className="wrap grid h-16 grid-cols-[1fr_auto] items-center lg:grid-cols-[1fr_auto_1fr]">
-        <Link href="/" aria-label="Home" className="justify-self-start"><Logo /></Link>
+    // Fixed height in the page flow: the bar inside changes shape without moving content.
+    <header className="sticky top-0 z-50 h-16">
+      <div className={cn("absolute inset-x-0 transition-[top] duration-300 ease-out", scrolled ? "top-3 px-3" : "top-0")}>
+        <div
+          className={cn(
+            "mx-auto flex items-center border transition-all duration-300 ease-out",
+            scrolled
+              // Compact glass bar that hugs its contents (full width on small screens).
+              ? "h-14 w-full max-w-[1120px] gap-3 rounded-2xl border-black/[0.06] bg-white/70 pr-2 pl-3.5 shadow-[0_8px_32px_-8px_rgb(15_23_42/.18),0_1px_2px_rgb(15_23_42/.06)] backdrop-blur-xl backdrop-saturate-150 lg:w-fit dark:border-white/10 dark:bg-surface/70"
+              // Resting state: aligned with the page content (.wrap), blending into the hero.
+              : "h-16 w-full max-w-[1560px] gap-2 rounded-none border-transparent bg-transparent px-5 sm:px-8 lg:px-14",
+          )}
+        >
+          {/* Equal-width sides keep the menus centred in the resting state. */}
+          <div className={cn("flex shrink-0 items-center", !scrolled && "lg:flex-1")}>
+            <Link href="/" aria-label="Home"><Logo size={scrolled ? "sm" : "md"} /></Link>
+          </div>
 
-        <nav ref={navRef} className="hidden items-center lg:flex" aria-label="Main">
-          <NavMenu label="Tools" open={menu === "tools"} onOpen={() => setMenu("tools")} onClose={closeIf("tools")} wide>
-            <div className="grid w-[960px] grid-cols-3 gap-x-2 gap-y-1 p-2">
-              {order.map((c) => (
-                <div key={c} className="p-2">
-                  <p className="mb-1.5 flex items-center gap-2 px-1 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">
-                    <span className="size-1.5 rounded-full" style={{ background: `var(--cat-${c})` }} /> {categories[c].name}
-                  </p>
-                  <ul>
-                    {toolsIn(c).slice(0, 6).map((t) => (
-                      <li key={t.slug}>
-                        <Link href={`/${t.slug}`} onClick={close} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
-                          <ToolIcon name={t.icon} className="size-4 shrink-0" />
-                          {t.name}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="mt-1 flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
-              <p className="text-[13px] text-ink-2"><span className="font-semibold text-ink">{tools.length} tools</span> for editing, converting and securing documents.</p>
-              <div className="flex items-center gap-5">
-                <Link href="/pdf-converter" onClick={close} className="text-[13px] font-semibold text-ink-2 hover:text-ink">PDF converter</Link>
-                <Link href="/#tools" onClick={close} className="flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">View all tools <ArrowRight className="size-3.5" /></Link>
-              </div>
-            </div>
-          </NavMenu>
-
-          {MENUS.map((m) => (
-            <NavMenu key={m.id} label={m.label} open={menu === m.id} onOpen={() => setMenu(m.id)} onClose={closeIf(m.id)}
-              active={!!current && m.columns.some((col) => col.items.some((t) => t.slug === current.slug))}>
-              <div className={cn("grid gap-1", m.columns.length > 1 ? "w-[640px] grid-cols-2" : "w-[340px]")}>
-                {m.columns.map((col) => (
-                  <div key={col.title}>
-                    <p className="px-2.5 pt-2 pb-1 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">{col.title}</p>
-                    {col.items.map((t) => <MenuItem key={t.slug} t={t} onNavigate={close} />)}
+          <nav ref={navRef} className="hidden items-center lg:flex" aria-label="Main">
+            <NavMenu label="Tools" compact={scrolled} open={menu === "tools"} onOpen={() => setMenu("tools")} onClose={closeIf("tools")} wide>
+              <div className="grid w-[960px] grid-cols-3 gap-x-2 gap-y-1 p-2">
+                {order.map((c) => (
+                  <div key={c} className="p-2">
+                    <p className="mb-1.5 flex items-center gap-2 px-1 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">
+                      <span className="size-1.5 rounded-full" style={{ background: `var(--cat-${c})` }} /> {categories[c].name}
+                    </p>
+                    <ul>
+                      {toolsIn(c).slice(0, 6).map((t) => (
+                        <li key={t.slug}>
+                          <Link href={`/${t.slug}`} onClick={close} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
+                            <ToolIcon name={t.icon} className="size-4 shrink-0" />
+                            {t.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 ))}
               </div>
+              <div className="mt-1 flex items-center justify-between rounded-lg bg-surface-2 px-4 py-3">
+                <p className="text-[13px] text-ink-2"><span className="font-semibold text-ink">{tools.length} tools</span> for editing, converting and securing documents.</p>
+                <div className="flex items-center gap-5">
+                  <Link href="/pdf-converter" onClick={close} className="text-[13px] font-semibold text-ink-2 hover:text-ink">PDF converter</Link>
+                  <Link href="/#tools" onClick={close} className="flex items-center gap-1 text-[13px] font-semibold text-accent hover:underline">View all tools <ArrowRight className="size-3.5" /></Link>
+                </div>
+              </div>
             </NavMenu>
-          ))}
-        </nav>
 
-        <div className="flex items-center justify-self-end gap-2">
-          <ThemeToggle />
-          <Link href="/editor" className="hidden h-10 items-center gap-2 rounded-lg bg-ink px-4 text-[14px] font-semibold text-bg transition hover:opacity-90 sm:inline-flex">
-            Open editor <ArrowRight className="size-4" />
-          </Link>
-          <button className="flex size-10 items-center justify-center rounded-lg border border-border lg:hidden" aria-label={mobile ? "Close menu" : "Open menu"} aria-expanded={mobile} onClick={() => setMobile(!mobile)}>
-            {mobile ? <X className="size-5" /> : <Menu className="size-5" />}
-          </button>
+            {MENUS.map((m) => (
+              <NavMenu key={m.id} label={m.label} compact={scrolled} open={menu === m.id} onOpen={() => setMenu(m.id)} onClose={closeIf(m.id)}
+                active={!!current && m.columns.some((col) => col.items.some((t) => t.slug === current.slug))}>
+                <div className={cn("grid gap-1", m.columns.length > 1 ? "w-[640px] grid-cols-2" : "w-[340px]")}>
+                  {m.columns.map((col) => (
+                    <div key={col.title}>
+                      <p className="px-2.5 pt-2 pb-1 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">{col.title}</p>
+                      {col.items.map((t) => <MenuItem key={t.slug} t={t} onNavigate={close} />)}
+                    </div>
+                  ))}
+                </div>
+              </NavMenu>
+            ))}
+          </nav>
+
+          <div className={cn("ml-auto flex shrink-0 items-center justify-end gap-2 lg:ml-0", !scrolled && "lg:flex-1")}>
+            <ThemeToggle />
+            <Link href="/editor" className={cn("hidden items-center gap-2 rounded-xl bg-ink font-semibold text-bg transition-all duration-300 hover:opacity-90 sm:inline-flex", scrolled ? "h-10 px-4 text-[13.5px]" : "h-10 px-4 text-[14px]")}>
+              Open editor <ArrowRight className="size-4" />
+            </Link>
+            <button className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface/60 lg:hidden" aria-label={mobile ? "Close menu" : "Open menu"} aria-expanded={mobile} onClick={() => setMobile(!mobile)}>
+              {mobile ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Mobile / tablet menu */}
-      <div className={cn("border-t border-border bg-surface lg:hidden", mobile ? "block" : "hidden")}>
-        <nav className="wrap max-h-[75vh] space-y-5 overflow-y-auto py-5" aria-label="Mobile">
+        {/* Mobile / tablet menu: a card under the bar */}
+        <div className={cn("mx-auto mt-2 max-w-[1120px] overflow-hidden rounded-2xl border border-border bg-surface shadow-lg lg:hidden", mobile ? "block animate-pop" : "hidden", !scrolled && "mx-3")}>
+          <nav className="max-h-[75vh] space-y-5 overflow-y-auto px-4 py-5" aria-label="Mobile">
           {order.map((c) => (
             <div key={c}>
               <p className="mb-1.5 flex items-center gap-2 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">
@@ -167,7 +190,8 @@ export function Header() {
             </div>
           ))}
           <Link href="/editor" className="flex h-11 items-center justify-center gap-2 rounded-lg bg-ink text-[15px] font-semibold text-bg sm:hidden">Open editor <ArrowRight className="size-4" /></Link>
-        </nav>
+          </nav>
+        </div>
       </div>
     </header>
   );

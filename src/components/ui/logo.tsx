@@ -27,12 +27,13 @@ export function LogoMark({ className }: { className?: string }) {
 }
 
 /** Mark + wordmark: "PDF" set solid, "ella" in the italic display serif. */
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, size = "md" }: { className?: string; size?: "md" | "sm" }) {
+  const sm = size === "sm";
   return (
-    <span className={cn("inline-flex items-center gap-2.5", className)} aria-label={brand.name}>
-      <LogoMark />
-      <span className="text-[26px] leading-none tracking-tight" aria-hidden>
-        <span className="font-extrabold">PDF</span><span className="font-display text-[31px] text-accent italic">ella</span>
+    <span className={cn("inline-flex items-center transition-all duration-300", sm ? "gap-2" : "gap-2.5", className)} aria-label={brand.name}>
+      <LogoMark className={cn("transition-all duration-300", sm && "size-8")} />
+      <span className={cn("leading-none tracking-tight transition-all duration-300", sm ? "text-[21px]" : "text-[26px]")} aria-hidden>
+        <span className="font-extrabold">PDF</span><span className={cn("font-display text-accent italic transition-all duration-300", sm ? "text-[25px]" : "text-[31px]")}>ella</span>
       </span>
     </span>
   );

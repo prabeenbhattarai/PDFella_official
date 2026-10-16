@@ -105,7 +105,7 @@ export default function LandingPage() {
         ],
       })} />
       {/* ───────────── Hero — exactly one screen tall, ticker pinned to the bottom */}
-      <section className="relative flex flex-col overflow-hidden lg:h-[calc(100svh-4rem-1px)] lg:min-h-[640px]">
+      <section className="relative -mt-16 flex flex-col overflow-hidden pt-16 lg:h-[calc(100svh-1px)] lg:min-h-[704px]">
         <div className="bg-glow pointer-events-none absolute inset-0" aria-hidden />
         <div className="bg-dots pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_at_30%_30%,black,transparent_70%)]" aria-hidden />
         <div className="wrap relative grid flex-1 items-center gap-10 py-10 lg:grid-cols-[1fr_1fr] lg:gap-16 lg:py-6">

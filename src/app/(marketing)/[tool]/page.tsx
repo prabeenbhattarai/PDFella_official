@@ -99,7 +99,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
   return (
     <>
       {/* ───────────── Hero + live tool */}
-      <section id="top" className="relative scroll-mt-16 overflow-hidden border-b border-border">
+      <section id="top" className="relative -mt-16 scroll-mt-16 overflow-hidden border-b border-border pt-16">
         <div className="bg-glow pointer-events-none absolute inset-0" aria-hidden />
         <div className="bg-dots pointer-events-none absolute inset-0 opacity-50 [mask-image:radial-gradient(ellipse_at_50%_20%,black,transparent_70%)]" aria-hidden />
         <div className="wrap relative pt-10 pb-16 text-center sm:pt-14">
