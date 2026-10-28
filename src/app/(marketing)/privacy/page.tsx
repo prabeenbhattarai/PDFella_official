@@ -40,7 +40,12 @@ export default function PrivacyPage() {
       <p>Signatures you create are kept only in the memory of the current browser tab and are discarded when you close it. We never upload or store them.</p>
 
       <h2>Analytics</h2>
-      <p>If enabled, we record anonymous usage events such as “a merge was completed” together with coarse details like page count or a file-size bucket. Events never include file names, document text or anything you typed.</p>
+      <p>We use <a className="text-accent underline" href="https://posthog.com" rel="noopener">PostHog</a>, hosted in the EU, to understand how {brand.name} is used: which pages are visited, roughly where visitors come from (country and referring site), which buttons are clicked, and anonymous events such as “a merge was completed” together with coarse details like page count or a file-size bucket.</p>
+      <ul>
+        <li>No cookies or browser storage are used for analytics, and visitors are not identified across days.</li>
+        <li>Clicks are recorded without the text on the page, and inside the editor only our own anonymous events are sent.</li>
+        <li>Events never include file names, document text, signatures or anything you typed. We do not record sessions.</li>
+      </ul>
 
       <h2>Third parties</h2>
       <p>Cloud processing runs on Google Cloud (Cloud Run and Cloud Storage) in our own project. No document is sent to any other third-party service unless a tool explicitly says so.</p>

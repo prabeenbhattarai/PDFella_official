@@ -20,6 +20,11 @@ const csp = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+// PostHog is reached through a same-origin proxy (/ingest) so analytics needs no CSP
+// exceptions and isn't dropped by tracker blockers. EU region by default.
+const posthogHost = process.env.POSTHOG_HOST || "https://eu.i.posthog.com";
+const posthogAssets = posthogHost.replace(/^https:\/\/(\w+)\.i\./, "https://$1-assets.i.");
+
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -43,6 +48,14 @@ const nextConfig: NextConfig = {
       { source: "/header-footer", destination: "/add-header-and-footer-to-pdf", permanent: true },
       { source: "/organise-pdf", destination: "/rearrange-pdf-pages", permanent: true },
       { source: "/organize-pdf", destination: "/rearrange-pdf-pages", permanent: true },
+    ];
+  },
+  // PostHog's ingestion endpoints use trailing slashes; page URLs are normalised in middleware.ts instead.
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: "/ingest/static/:path*", destination: `${posthogAssets}/static/:path*` },
+      { source: "/ingest/:path*", destination: `${posthogHost}/:path*` },
     ];
   },
   async headers() {

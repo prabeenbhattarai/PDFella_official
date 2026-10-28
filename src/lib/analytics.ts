@@ -28,12 +28,8 @@ export function track(event: AnalyticsEvent, props: SafeProps = {}) {
   const safe: SafeProps = {};
   for (const [k, v] of Object.entries(props)) if (ALLOWED_KEYS.has(k)) safe[k] = v;
   if (typeof window === "undefined") return;
-  if (process.env.NODE_ENV !== "production") {
-    console.debug("[analytics]", event, safe);
-    return;
-  }
-  // Provider hook: window.__pdfellaAnalytics is set by an optional provider script
-  // (e.g. Firebase Analytics) only after consent.
-  const sink = (window as unknown as { __pdfellaAnalytics?: (e: string, p: SafeProps) => void }).__pdfellaAnalytics;
-  sink?.(event, safe);
+  if (process.env.NODE_ENV !== "production") console.debug("[analytics]", event, safe);
+  // Provider hook: window.__pdfellaAnalytics is set by components/analytics/posthog.tsx
+  // when NEXT_PUBLIC_POSTHOG_KEY is configured.
+  window.__pdfellaAnalytics?.(event, safe);
 }
