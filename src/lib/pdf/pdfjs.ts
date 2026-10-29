@@ -10,7 +10,8 @@ let libPromise: Promise<typeof PdfjsLib> | null = null;
 export function loadPdfjs(): Promise<typeof PdfjsLib> {
   if (!libPromise) {
     libPromise = import("pdfjs-dist").then((lib) => {
-      lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+      // Browsers load the copy in /public; Node (the public API service) resolves the package's own worker.
+      lib.GlobalWorkerOptions.workerSrc = typeof window === "undefined" ? process.env.PDFJS_WORKER_SRC || "pdfjs-dist/legacy/build/pdf.worker.mjs" : "/pdf.worker.min.mjs";
       return lib;
     });
   }

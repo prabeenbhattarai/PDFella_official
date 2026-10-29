@@ -15,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: absolute("/"), lastModified: updated, changeFrequency: "weekly", priority: 1 },
     { url: absolute("/pdf-converter"), lastModified: updated, changeFrequency: "monthly", priority: 0.9 },
+    { url: absolute("/developers"), lastModified: updated, changeFrequency: "monthly", priority: 0.6 },
     ...toolEntries,
     ...["privacy", "security", "terms"].map((p) => ({ url: absolute(`/${p}`), lastModified: updated, changeFrequency: "yearly" as const, priority: 0.3 })),
   ];

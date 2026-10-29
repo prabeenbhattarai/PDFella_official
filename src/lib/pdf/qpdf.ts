@@ -25,7 +25,7 @@ async function instance(errors: string[]): Promise<QpdfInstance> {
   const { default: createModule } = await import("@neslinesli93/qpdf-wasm");
   const create = createModule as unknown as (o: Record<string, unknown>) => Promise<QpdfInstance>;
   return create({
-    locateFile: () => (typeof window === "undefined" ? "node_modules/@neslinesli93/qpdf-wasm/dist/qpdf.wasm" : WASM_URL),
+    locateFile: () => (typeof window === "undefined" ? process.env.QPDF_WASM_PATH || "node_modules/@neslinesli93/qpdf-wasm/dist/qpdf.wasm" : WASM_URL),
     noInitialRun: true,
     print: () => {},
     printErr: (s: string) => errors.push(s),

@@ -29,6 +29,7 @@ export function Footer() {
           <p>© {new Date().getFullYear()} {brand.name}. All rights reserved.</p>
           <nav className="flex gap-5" aria-label="Legal">
             <Link href="/pdf-converter" className="hover:text-ink">PDF converter</Link>
+            <Link href="/developers" className="hover:text-ink">API</Link>
             <Link href="/privacy" className="hover:text-ink">Privacy</Link>
             <Link href="/security" className="hover:text-ink">Security</Link>
             <Link href="/terms" className="hover:text-ink">Terms</Link>

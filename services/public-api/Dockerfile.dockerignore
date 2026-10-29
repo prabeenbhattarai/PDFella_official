@@ -1,0 +1,8 @@
+# Only what the build stage copies; never env files, local data or build output.
+*
+!package.json
+!package-lock.json
+!tsconfig.json
+!src
+!services/public-api
+services/public-api/dist

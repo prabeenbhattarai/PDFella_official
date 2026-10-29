@@ -7,7 +7,7 @@ import {
 } from "pdf-lib";
 import JSZip from "jszip";
 import { openPdf } from "./pdfjs";
-import { dataUrlToBytes, pruneOrphans, toWinAnsi } from "./export";
+import { dataUrlToBytes, pruneOrphans, toWinAnsi } from "./doc-utils";
 import { hexToRgb01 } from "./geometry";
 import { brand } from "../brand";
 

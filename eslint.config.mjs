@@ -19,6 +19,7 @@ const eslintConfig = [
       // Vendored, minified browser bundles (copied from node_modules).
       "public/pdf.worker.min.mjs",
       "services/worker/.venv/**",
+      "services/public-api/dist/**",
       "test-results/**",
       "playwright-report/**",
       "out/**",
