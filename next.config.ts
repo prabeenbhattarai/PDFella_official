@@ -16,7 +16,7 @@ const csp = [
   "img-src 'self' data: blob: https://lh3.googleusercontent.com",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
-  `connect-src 'self' blob: data: ${process.env.NEXT_PUBLIC_PROCESSING_URL ?? ""} https://storage.googleapis.com https://firebasestorage.googleapis.com https://accounts.google.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com`,
+  `connect-src 'self' blob: data: ${process.env.NEXT_PUBLIC_PROCESSING_URL ?? ""} https://storage.googleapis.com https://firebasestorage.googleapis.com https://accounts.google.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://api.github.com`,
   `frame-src 'self' blob: https://accounts.google.com ${authDomain}`,
   "object-src 'none'",
   "base-uri 'self'",

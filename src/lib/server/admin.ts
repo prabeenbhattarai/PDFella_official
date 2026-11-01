@@ -1,5 +1,6 @@
 import "server-only";
-import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT } from "jose";
+import { SignJWT } from "jose";
+import { bearer, PROJECT_ID, serviceAccountKey, TokenError, verifyIdToken } from "./firebase-auth";
 
 /**
  * Admin panel back end. Access is decided here, on the server: the request must
@@ -13,11 +14,6 @@ import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT } from "jose";
 export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "prabeenbhattarai7450@gmail.com")
   .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-// Google's public keys for Firebase ID tokens (cached and rotated by jose).
-const FIREBASE_KEYS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
-
 export const canListUsers = () => !!process.env.FIREBASE_SERVICE_ACCOUNT;
 
 export class AdminAuthError extends Error {
@@ -27,19 +23,13 @@ export class AdminAuthError extends Error {
 /** Returns the admin's email, or throws AdminAuthError. */
 export async function requireAdmin(req: Request): Promise<string> {
   if (!PROJECT_ID) throw new AdminAuthError(403, "Sign-in isn't configured.");
-  const token = req.headers.get("authorization")?.match(/^Bearer\s+(\S+)$/i)?.[1];
+  const token = bearer(req);
   if (!token) throw new AdminAuthError(401, "Sign in first.");
   let claims;
   try {
-    ({ payload: claims } = await jwtVerify(token, FIREBASE_KEYS, {
-      algorithms: ["RS256"],
-      audience: PROJECT_ID,
-      issuer: `https://securetoken.google.com/${PROJECT_ID}`,
-      clockTolerance: 30,
-    }));
-    if (!claims.sub) throw new Error("token has no subject");
+    claims = await verifyIdToken(token);
   } catch (e) {
-    const code = (e as { code?: string }).code ?? (e as Error).message;
+    const code = e instanceof TokenError ? e.code : String(e);
     console.error("admin token check failed:", code);
     throw new AdminAuthError(401, code === "ERR_JWT_EXPIRED" ? "Your session has expired. Sign in again." : `Sign-in couldn't be verified (${code}). Sign in again.`);
   }
@@ -52,59 +42,12 @@ export async function requireAdmin(req: Request): Promise<string> {
 
 // ───────── registered users (Identity Toolkit REST + service account)
 
-interface ServiceAccount { project_id?: string; client_email: string; private_key: string }
-
-/**
- * Accepts the key file however it was pasted: raw JSON, base64 of it, wrapped in
- * quotes or a code fence, or with the private key's "\n" escapes turned into real
- * line breaks (which some dashboards do and which makes the JSON invalid).
- */
-function parseServiceAccount(raw: string): ServiceAccount | null {
-  let text = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
-  if (text.startsWith('"')) {
-    // The whole file pasted as one JSON string.
-    try { const inner = JSON.parse(text); if (typeof inner === "string") text = inner.trim(); } catch { text = text.slice(1, -1); }
-  } else if (text.startsWith("'") && text.endsWith("'")) text = text.slice(1, -1);
-  if (!text.startsWith("{")) {
-    try { text = Buffer.from(text, "base64").toString("utf8").trim(); } catch { return null; }
-  }
-  const attempts = [
-    text,
-    // Real line breaks inside the private key string → JSON escapes.
-    text.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (_, a: string, key: string, b: string) => a + key.replace(/\r?\n/g, "\\n") + b),
-  ];
-  for (const t of attempts) {
-    try {
-      const v = JSON.parse(t);
-      // Pasted as a JSON string of JSON.
-      return typeof v === "string" ? JSON.parse(v) : v;
-    } catch { /* next attempt */ }
-  }
-  return null;
-}
-
-function serviceAccount(): ServiceAccount {
-  const parsed = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT ?? "");
-  if (!parsed) throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste it as base64 instead (see the setup notes).");
-  if (!parsed.client_email || !parsed.private_key) throw new Error("FIREBASE_SERVICE_ACCOUNT is missing client_email or private_key.");
-  if (parsed.project_id && PROJECT_ID && parsed.project_id !== PROJECT_ID) {
-    throw new Error(`FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", but sign-in uses "${PROJECT_ID}".`);
-  }
-  return parsed;
-}
-
 let accessToken: { value: string; expires: number } | null = null;
 
 /** OAuth access token for the service account (JWT bearer grant), cached until shortly before it expires. */
 async function googleAccessToken(): Promise<string> {
   if (accessToken && accessToken.expires > Date.now() + 60_000) return accessToken.value;
-  const sa = serviceAccount();
-  let key;
-  try {
-    key = await importPKCS8(sa.private_key, "RS256");
-  } catch {
-    throw new Error("The private key in FIREBASE_SERVICE_ACCOUNT can't be read. Paste the whole key file again.");
-  }
+  const { sa, key } = await serviceAccountKey();
   const now = Math.floor(Date.now() / 1000);
   const assertion = await new SignJWT({ scope: "https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/cloud-platform" })
     .setProtectedHeader({ alg: "RS256", typ: "JWT" })

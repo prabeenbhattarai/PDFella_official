@@ -4,6 +4,7 @@
  * signs in to Firebase. Loaded once, on demand.
  */
 import { signInWithGoogleIdToken } from "./firebase";
+import { isDesktopApp } from "./desktop";
 
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -25,7 +26,8 @@ export function setGsiErrorHandler(fn: ((e: unknown) => void) | null) {
 }
 
 export function loadGsi(): Promise<GoogleId | null> {
-  if (!GOOGLE_CLIENT_ID) return Promise.resolve(null);
+  // No One Tap or Google button in the desktop app: Google blocks them in web views.
+  if (!GOOGLE_CLIENT_ID || isDesktopApp()) return Promise.resolve(null);
   loading ??= new Promise<GoogleId | null>((resolve) => {
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client";

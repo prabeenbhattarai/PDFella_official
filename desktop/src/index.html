@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDFella</title>
+  <style>
+    :root { --bg: #f7f7f4; --surface: #fff; --ink: #15171c; --ink-3: #5a5f6b; --accent: #0c7a64; --border: #e2e2dc; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0e1013; --surface: #16191e; --ink: #eef0f3; --ink-3: #a3aab5; --accent: #3ccaa6; --border: #2a2f37; } }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { display: grid; place-items: center; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; -webkit-user-select: none; user-select: none; }
+    .card { width: min(380px, calc(100vw - 32px)); padding: 36px 32px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 24px; }
+    .logo { width: 56px; height: 56px; animation: breathe 1.6s ease-in-out infinite; }
+    h1 { margin: 20px 0 6px; font-size: 20px; letter-spacing: -0.01em; }
+    p { margin: 0; color: var(--ink-3); }
+    button { margin-top: 22px; height: 44px; width: 100%; border: 0; border-radius: 12px; background: var(--ink); color: var(--bg); font: 600 15px inherit; font-family: inherit; cursor: pointer; }
+    button:hover { opacity: .9; }
+    .hidden { display: none; }
+    @keyframes breathe { 50% { transform: scale(1.06); } }
+    .offline .logo { animation: none; opacity: .5; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true">
+      <rect x="1" y="1" width="30" height="30" rx="9" fill="#0c7a64"/>
+      <path d="M10.2 6h8.3l5.5 5.5V23.6a2.6 2.6 0 0 1-2.6 2.6H10.2a2.6 2.6 0 0 1-2.6-2.6V8.6A2.6 2.6 0 0 1 10.2 6z" fill="#fff"/>
+      <path d="M18.5 6v3.9a1.6 1.6 0 0 0 1.6 1.6H24" fill="#cfe9e1"/>
+      <path d="M11.9 22.4V12.2h3.7a3 3 0 0 1 0 6h-3.7" fill="none" stroke="#0c7a64" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M24.4 15.6c.45 2.95 1.55 4.05 4.5 4.5-2.95.45-4.05 1.55-4.5 4.5-.45-2.95-1.55-4.05-4.5-4.5 2.95-.45 4.05-1.55 4.5-4.5z" fill="#ffc83d" stroke="#fff" stroke-width="1.1" stroke-linejoin="round"/>
+    </svg>
+    <h1 id="title">Opening PDFella…</h1>
+    <p id="text">Connecting to pdfella.com</p>
+    <button id="retry" class="hidden" type="button">Try again</button>
+  </div>
+  <script>
+    // PDFella runs from pdfella.com, so the app needs an internet connection.
+    const SITE = "https://www.pdfella.com";
+    const $ = (id) => document.getElementById(id);
+
+    function offline() {
+      document.body.classList.add("offline");
+      $("title").textContent = "You're offline";
+      $("text").textContent = "PDFella needs an internet connection. Connect to Wi-Fi and we'll open it automatically.";
+      $("retry").classList.remove("hidden");
+    }
+
+    async function open() {
+      document.body.classList.remove("offline");
+      $("title").textContent = "Opening PDFella…";
+      $("text").textContent = "Connecting to pdfella.com";
+      $("retry").classList.add("hidden");
+      try {
+        await fetch(SITE + "/api/health", { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(8000) });
+        location.replace(SITE + "/?utm_source=desktop");
+      } catch {
+        offline();
+      }
+    }
+
+    $("retry").addEventListener("click", open);
+    window.addEventListener("online", open);
+    navigator.onLine ? open() : offline();
+  </script>
+</body>
+</html>

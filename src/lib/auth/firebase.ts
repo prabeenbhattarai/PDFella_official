@@ -4,6 +4,7 @@
  */
 import type { Auth, User } from "firebase/auth";
 import type { AuthUser } from "./store";
+import { isDesktopApp, startDesktopSignIn } from "./desktop";
 
 const config = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -26,6 +27,8 @@ export const toAuthUser = (u: User): AuthUser => ({ uid: u.uid, name: u.displayN
 
 /** The "Continue with Google" button: Google's account chooser in a popup. */
 export async function signInWithGoogle(loginHint?: string) {
+  // The desktop app can't show Google sign-in; it hands over to the system browser.
+  if (isDesktopApp()) return startDesktopSignIn();
   const [auth, { GoogleAuthProvider, signInWithPopup }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account", ...(loginHint ? { login_hint: loginHint } : {}) });
@@ -47,4 +50,10 @@ export async function signOutUser() {
 export async function currentIdToken(): Promise<string | null> {
   const auth = await getFirebaseAuth();
   return auth.currentUser ? auth.currentUser.getIdToken() : null;
+}
+
+/** Desktop hand-over: sign in with the custom token the browser passed back. */
+export async function signInWithFirebaseCustomToken(token: string) {
+  const [auth, { signInWithCustomToken }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
+  await signInWithCustomToken(auth, token);
 }

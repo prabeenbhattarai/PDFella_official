@@ -20,6 +20,7 @@ const eslintConfig = [
       "public/pdf.worker.min.mjs",
       "services/worker/.venv/**",
       "services/public-api/dist/**",
+      "desktop/**",
       "test-results/**",
       "playwright-report/**",
       "out/**",

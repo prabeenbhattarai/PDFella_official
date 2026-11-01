@@ -1,0 +1,88 @@
+# Builds the PDFella desktop app (desktop/) for macOS and Windows and publishes a
+# GitHub release. Run it by pushing a tag like `desktop-v0.1.0` (the version in
+# desktop/src-tauri/tauri.conf.json), or from the Actions tab.
+#
+# Each release also gets fixed-name copies, PDFella-mac.dmg and
+# PDFella-windows-setup.exe, so /download can link to releases/latest/download/….
+#
+# Optional signing secrets (without them the apps are unsigned and the OS shows a warning):
+#   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
+#            APPLE_ID, APPLE_PASSWORD, APPLE_TEAM_ID
+#   Windows: configure bundle.windows.certificateThumbprint or a signCommand in tauri.conf.json
+name: Desktop app
+
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            args: --target universal-apple-darwin
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - os: windows-latest
+            args: ""
+            rust-targets: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri -> target
+
+      - name: Install the Tauri CLI
+        working-directory: desktop
+        run: npm install
+
+      - name: Build and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: desktop
+          tagName: desktop-v__VERSION__
+          releaseName: PDFella Desktop v__VERSION__
+          releaseBody: |
+            PDFella for macOS (Apple silicon and Intel) and Windows 10/11. Needs an internet connection.
+            - macOS: open PDFella-mac.dmg and drag PDFella to Applications.
+            - Windows: run PDFella-windows-setup.exe.
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+
+      - name: Upload fixed-name copies for the download page
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          mkdir -p stable
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            cp desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg stable/PDFella-mac.dmg
+          else
+            cp desktop/src-tauri/target/release/bundle/nsis/*-setup.exe stable/PDFella-windows-setup.exe
+          fi
+          gh release upload "desktop-v$VERSION" stable/* --clobber

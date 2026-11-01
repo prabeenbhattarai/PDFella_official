@@ -10,6 +10,8 @@ import { ToolIcon } from "@/components/ui/tool-icon";
 import { categories, getTool, tools, toolsIn, editorHref, type Tool, type ToolCategory } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 import { AccountButton } from "@/components/auth/account-button";
+import { authEnabled, useAuth } from "@/lib/auth/store";
+import { DesktopMenu, PLATFORMS } from "@/components/marketing/desktop-platforms";
 
 const order: ToolCategory[] = ["edit", "organise", "convert", "optimise", "security", "forms"];
 const pick = (slugs: string[]) => slugs.map(getTool).filter(Boolean) as Tool[];
@@ -49,7 +51,7 @@ function NavMenu({ label, active, open, onOpen, onClose, children, wide, compact
   return (
     <div className="relative" onMouseEnter={enter} onMouseLeave={leave}>
       <button
-        className={cn("relative flex items-center gap-1.5 font-semibold transition-all duration-300", compact ? "h-14 px-3 text-[14px]" : "h-16 px-4 text-[15px]", open || active ? "text-accent" : "text-ink hover:text-accent")}
+        className={cn("relative flex items-center gap-1.5 font-semibold transition-all duration-300", compact ? "h-14 px-3 text-[14px]" : "h-16 px-3 text-[15px] xl:px-4", open || active ? "text-accent" : "text-ink hover:text-accent")}
         aria-expanded={open}
         aria-haspopup="true"
         // A click always opens. It never toggles shut, so "hover, then click" keeps the menu open.
@@ -58,7 +60,7 @@ function NavMenu({ label, active, open, onOpen, onClose, children, wide, compact
       >
         {label}
         <ChevronDown className={cn("size-4 opacity-70 transition-transform", open && "rotate-180")} aria-hidden />
-        <span className={cn("absolute bottom-0 h-0.5 rounded-full bg-accent transition-opacity", compact ? "inset-x-3 bottom-2" : "inset-x-4", open || active ? "opacity-100" : "opacity-0")} aria-hidden />
+        <span className={cn("absolute bottom-0 h-0.5 rounded-full bg-accent transition-opacity", compact ? "inset-x-3 bottom-2" : "inset-x-3 xl:inset-x-4", open || active ? "opacity-100" : "opacity-0")} aria-hidden />
       </button>
       {open && (
         <div className={cn(wide ? cn("fixed left-1/2 -translate-x-1/2", compact ? "top-[76px]" : "top-16 pt-px") : cn("absolute top-full left-1/2 -translate-x-1/2", compact ? "pt-2" : "pt-px"))} onMouseEnter={() => clearTimeout(timer.current)} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
@@ -86,6 +88,7 @@ export function Header() {
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", esc); };
   }, [menu]);
   const current = getTool(pathname.replace(/^\//, ""));
+  const signedOut = useAuth((s) => s.ready && !s.user);
 
   // At the top the bar blends into the hero; once the page scrolls it becomes a compact,
   // centred glass bar so content shows through underneath.
@@ -161,12 +164,16 @@ export function Header() {
                 </div>
               </NavMenu>
             ))}
+
+            <NavMenu label="Desktop" compact={scrolled} open={menu === "desktop"} onOpen={() => setMenu("desktop")} onClose={closeIf("desktop")} active={pathname === "/download"}>
+              <DesktopMenu onNavigate={close} />
+            </NavMenu>
           </nav>
 
           <div className={cn("ml-auto flex shrink-0 items-center justify-end gap-2 lg:ml-0", !scrolled && "lg:flex-1")}>
             <ThemeToggle />
-            <AccountButton compact={scrolled} />
-            <Link href="/editor" className={cn("hidden items-center gap-2 rounded-xl bg-ink font-semibold text-bg transition-all duration-300 hover:opacity-90 sm:inline-flex", scrolled ? "h-10 px-4 text-[13.5px]" : "h-10 px-4 text-[14px]")}>
+            <AccountButton compact={scrolled} signInClassName="hidden xl:inline-flex" />
+            <Link href="/editor" className={cn("hidden items-center gap-2 rounded-xl bg-ink font-semibold whitespace-nowrap text-bg transition-all duration-300 hover:opacity-90 sm:inline-flex", scrolled ? "h-10 px-4 text-[13.5px]" : "h-10 px-4 text-[14px]")}>
               Open editor <ArrowRight className="size-4" />
             </Link>
             <button className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface/60 lg:hidden" aria-label={mobile ? "Close menu" : "Open menu"} aria-expanded={mobile} onClick={() => setMobile(!mobile)}>
@@ -191,6 +198,22 @@ export function Header() {
               </div>
             </div>
           ))}
+          <div>
+            <p className="mb-1.5 text-[12px] font-semibold tracking-[0.08em] text-ink-3 uppercase">Desktop app</p>
+            <div className="grid grid-cols-2 gap-1">
+              {(["mac", "windows"] as const).map((id) => {
+                const { name, logo: OsLogo } = PLATFORMS[id];
+                return (
+                  <Link key={id} href={`/download#${id}`} className="flex items-center gap-2.5 rounded-md px-2 py-2 text-[14px] font-medium text-ink-2 hover:bg-surface-2">
+                    <OsLogo className="size-4 shrink-0" /> {name}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          {authEnabled && signedOut && (
+            <button type="button" onClick={() => { setMobile(false); useAuth.getState().openPrompt("editor"); }} className="flex h-11 w-full items-center justify-center rounded-lg border border-border text-[15px] font-semibold text-ink-2 hover:bg-surface-2 xl:hidden">Sign in</button>
+          )}
           <Link href="/editor" className="flex h-11 items-center justify-center gap-2 rounded-lg bg-ink text-[15px] font-semibold text-bg sm:hidden">Open editor <ArrowRight className="size-4" /></Link>
           </nav>
         </div>
