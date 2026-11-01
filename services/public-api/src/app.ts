@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { API_LIMITS, API_VERSION, ENDPOINTS } from "@/lib/api/spec";
+import { API_LIMITS, API_VERSION, ENDPOINTS, PROCESS_PATH, endpointById, type ApiEndpoint } from "@/lib/api/spec";
 import { ApiError } from "./errors";
 import { readInput } from "./input";
 import { hashKey, keyStore, looksLikeKey, type ApiKey } from "./keys";
@@ -82,34 +82,51 @@ export function createApp() {
     });
   });
 
+  const limit = bodyLimit({ maxSize: API_LIMITS.maxRequestBytes, onError: () => { throw new ApiError("too_large", `Requests must be ${API_LIMITS.maxRequestBytes / 1024 / 1024} MB or smaller.`); } });
+
+  /**
+   * Runs one tool. `pick` chooses the endpoint from the parsed form, so the same
+   * code serves both /v1/<tool> and the single /v1/process endpoint.
+   */
+  const handle = (pick: (form: FormData) => ApiEndpoint) => async (c: Context<Env>) => {
+    const key = c.get("key");
+    const bytesIn = Number(c.req.header("content-length") ?? 0);
+    let tool = "unknown";
+    let ok = false;
+    try {
+      if (!(c.req.header("content-type") ?? "").startsWith("multipart/form-data")) {
+        throw new ApiError("invalid_request", "Send files as multipart/form-data.");
+      }
+      const form = await c.req.formData().catch(() => { throw new ApiError("invalid_request", "The multipart body couldn't be read."); });
+      const endpoint = pick(form);
+      tool = endpoint.id;
+      const out = await OPERATIONS[endpoint.id](await readInput(endpoint, form));
+      ok = true;
+      return c.body(out.bytes as Uint8Array<ArrayBuffer>, 200, {
+        "Content-Type": out.contentType,
+        "Content-Disposition": `attachment; filename="${out.fileName}"`,
+        "Content-Length": String(out.bytes.length),
+        "X-PDFella-Tool": endpoint.id,
+      });
+    } finally {
+      // Metering must never fail the request.
+      keyStore().recordUsage(key.id, tool, ok, bytesIn).catch((e) => console.error("usage", String(e)));
+    }
+  };
+
+  // One endpoint for every tool: the `tool` field picks which.
+  app.post(`${v}${PROCESS_PATH}`, limit, handle((form) => {
+    const tool = form.get("tool");
+    if (typeof tool !== "string" || !tool.trim()) throw new ApiError("invalid_request", `\`tool\` is required: one of ${ENDPOINTS.map((e) => e.id).join(", ")}.`);
+    const endpoint = endpointById(tool.trim());
+    if (!endpoint) throw new ApiError("invalid_request", `Unknown \`tool\` "${tool.slice(0, 40)}". Use one of ${ENDPOINTS.map((e) => e.id).join(", ")}.`);
+    return endpoint;
+  }));
+
+  // The same tools at their own paths (kept for v1 compatibility).
   for (const endpoint of ENDPOINTS) {
-    const run = OPERATIONS[endpoint.id];
-    if (!run) throw new Error(`No operation for endpoint ${endpoint.id}`);
-    app.post(
-      `${v}${endpoint.path}`,
-      bodyLimit({ maxSize: API_LIMITS.maxRequestBytes, onError: () => { throw new ApiError("too_large", `Requests must be ${API_LIMITS.maxRequestBytes / 1024 / 1024} MB or smaller.`); } }),
-      async (c: Context<Env>) => {
-        const key = c.get("key");
-        const bytesIn = Number(c.req.header("content-length") ?? 0);
-        let ok = false;
-        try {
-          if (!(c.req.header("content-type") ?? "").startsWith("multipart/form-data")) {
-            throw new ApiError("invalid_request", "Send files as multipart/form-data.");
-          }
-          const form = await c.req.formData().catch(() => { throw new ApiError("invalid_request", "The multipart body couldn't be read."); });
-          const out = await run(await readInput(endpoint, form));
-          ok = true;
-          return c.body(out.bytes as Uint8Array<ArrayBuffer>, 200, {
-            "Content-Type": out.contentType,
-            "Content-Disposition": `attachment; filename="${out.fileName}"`,
-            "Content-Length": String(out.bytes.length),
-          });
-        } finally {
-          // Metering must never fail the request.
-          keyStore().recordUsage(key.id, endpoint.id, ok, bytesIn).catch((e) => console.error("usage", String(e)));
-        }
-      },
-    );
+    if (!OPERATIONS[endpoint.id]) throw new Error(`No operation for endpoint ${endpoint.id}`);
+    app.post(`${v}${endpoint.path}`, limit, handle(() => endpoint));
   }
 
   return app;

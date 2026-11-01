@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, KeyRound } from "lucide-react";
-import { API_BASE_URL, API_LIMITS, API_VERSION, ENDPOINTS, ERROR_CODES, paramsOf, type ApiEndpoint, type ApiParam } from "@/lib/api/spec";
+import { API_BASE_URL, API_LIMITS, API_VERSION, ENDPOINTS, ERROR_CODES, PROCESS_PATH, paramsOf, type ApiEndpoint, type ApiParam } from "@/lib/api/spec";
 import { brand } from "@/lib/brand";
 
 const TITLE = `PDF API for Developers: Merge, Split, Watermark & Protect | ${brand.name}`;
@@ -26,7 +26,7 @@ function Rich({ text }: { text: string }) {
 }
 
 function curlFor(e: ApiEndpoint) {
-  const lines = [`curl ${BASE}${e.path} \\`, `  -H "Authorization: Bearer $PDFELLA_API_KEY" \\`];
+  const lines = [`curl ${BASE}${PROCESS_PATH} \\`, `  -H "Authorization: Bearer $PDFELLA_API_KEY" \\`, `  -F "tool=${e.id}" \\`];
   for (const f of e.files.filter((f) => f.required)) {
     const ext = f.accepts[0];
     const names = f.multiple ? [`first.${ext}`, `second.${ext}`] : [`document.${ext}`];
@@ -54,7 +54,7 @@ function Endpoint({ e }: { e: ApiEndpoint }) {
         <h3 className="text-xl font-semibold text-ink">{e.title}</h3>
         <Link href={`/${e.tool}`} className="text-[13px] text-accent hover:underline">Same as the {brand.name} tool</Link>
       </div>
-      <p className="mt-2 font-mono text-[13px]"><span className="rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent">POST</span> <span className="text-ink">/{API_VERSION}{e.path}</span></p>
+      <p className="mt-2 font-mono text-[13px]"><span className="rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent">POST</span> <span className="text-ink">/{API_VERSION}{PROCESS_PATH}</span> <span className="text-ink-3">with</span> <span className="text-ink">tool={e.id}</span></p>
       <p className="mt-3 text-ink-2"><Rich text={e.summary} /></p>
 
       <table className="mt-5 text-[14px]">
@@ -77,6 +77,7 @@ function Endpoint({ e }: { e: ApiEndpoint }) {
         </tbody>
       </table>
       <p className="mt-4 text-[14px]"><strong>Returns</strong> <code>{e.returns.contentType.split(";")[0]}</code>: {e.returns.description}</p>
+      <p className="mt-1 text-[13px] text-ink-3">Also available as <code>POST /{API_VERSION}{e.path}</code> without the <code>tool</code> field.</p>
       <div className="mt-4"><Code>{curlFor(e)}</Code></div>
     </section>
   );
@@ -116,14 +117,15 @@ export default function DevelopersPage() {
 
         <div className="mt-16 space-y-5">
           <h2 id="start">Quick start</h2>
-          <p>Send files as <code>multipart/form-data</code>. The processed file comes back in the response body, so there&apos;s nothing to poll or download separately.</p>
-          <Code>{`curl ${BASE}/merge \\\n  -H "Authorization: Bearer $PDFELLA_API_KEY" \\\n  -F "files=@first.pdf" \\\n  -F "files=@second.pdf" \\\n  -o merged.pdf`}</Code>
+          <p>Every tool runs through one endpoint, <code>POST /{API_VERSION}{PROCESS_PATH}</code>. Set <code>tool</code> to the tool you want and send its files and fields as <code>multipart/form-data</code>. The processed file comes back in the response body, so there&apos;s nothing to poll or download separately.</p>
+          <Code>{`curl ${BASE}${PROCESS_PATH} \\\n  -H "Authorization: Bearer $PDFELLA_API_KEY" \\\n  -F "tool=merge" \\\n  -F "files=@first.pdf" \\\n  -F "files=@second.pdf" \\\n  -o merged.pdf`}</Code>
           <Code>{`// Node.js 18+
 const form = new FormData();
+form.append("tool", "watermark");
 form.append("file", new Blob([await fs.promises.readFile("report.pdf")]), "report.pdf");
 form.append("text", "CONFIDENTIAL");
 
-const res = await fetch("${BASE}/watermark", {
+const res = await fetch("${BASE}${PROCESS_PATH}", {
   method: "POST",
   headers: { Authorization: \`Bearer \${process.env.PDFELLA_API_KEY}\` },
   body: form,
@@ -159,7 +161,8 @@ await fs.promises.writeFile("report-watermarked.pdf", Buffer.from(await res.arra
         </div>
 
         <div className="mt-16">
-          <h2>Endpoints</h2>
+          <h2>Tools</h2>
+          <p className="mt-3">Values for <code>tool</code>: {ENDPOINTS.map((e, i) => <span key={e.id}>{i ? ", " : ""}<a href={`#${e.id}`}><code>{e.id}</code></a></span>)}.</p>
           {groups.map((g) => (
             <div key={g} className="mt-8">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-ink-3">{g}</p>

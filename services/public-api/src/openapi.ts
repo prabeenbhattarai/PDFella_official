@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_VERSION, ENDPOINTS, ERROR_CODES, paramsOf, type ApiParam } from "@/lib/api/spec";
+import { API_BASE_URL, API_VERSION, ENDPOINTS, ERROR_CODES, PROCESS_PATH, paramsOf, type ApiParam } from "@/lib/api/spec";
 import { brand } from "@/lib/brand";
 
 /** OpenAPI 3.1 document generated from lib/api/spec.ts (importable into Postman, Insomnia, code generators). */
@@ -42,6 +42,28 @@ export function openApiDocument(serverUrl = API_BASE_URL) {
     }];
   }));
 
+  // The single endpoint accepts every tool's fields; `tool` decides which apply.
+  const all: Record<string, unknown> = {
+    tool: { type: "string", enum: ENDPOINTS.map((e) => e.id), description: "Which tool to run. The other fields are that tool's fields." },
+  };
+  for (const e of ENDPOINTS) {
+    for (const f of e.files) all[f.name] ??= f.multiple ? { type: "array", items: binary, description: f.description } : { ...binary, description: f.description };
+    for (const p of paramsOf(e)) all[p.name] ??= { ...schemaFor(p), description: `${p.description} (${ENDPOINTS.filter((x) => paramsOf(x).some((q) => q.name === p.name)).map((x) => x.id).join(", ")})` };
+  }
+  const process = {
+    post: {
+      operationId: "process",
+      summary: "Run any tool",
+      description: "One endpoint for every tool: set `tool` and send that tool's files and fields. The response is the same as calling the tool's own path.",
+      tags: ["Process"],
+      requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: all, required: ["tool"] } } } },
+      responses: {
+        200: { description: "The processed file. Its type depends on the tool (see `X-PDFella-Tool`).", content: { "application/octet-stream": { schema: binary } } },
+        400: errorRef, 401: errorRef, 413: errorRef, 415: errorRef, 422: errorRef, 429: errorRef,
+      },
+    },
+  };
+
   return {
     openapi: "3.1.0",
     info: {
@@ -51,7 +73,7 @@ export function openApiDocument(serverUrl = API_BASE_URL) {
     },
     servers: [{ url: serverUrl }],
     security: [{ apiKey: [] }],
-    tags: [...new Set(ENDPOINTS.map((e) => e.group))].map((name) => ({ name })),
+    tags: ["Process", ...new Set(ENDPOINTS.map((e) => e.group))].map((name) => ({ name })),
     paths: {
       [`/${API_VERSION}/me`]: {
         get: {
@@ -60,6 +82,7 @@ export function openApiDocument(serverUrl = API_BASE_URL) {
           responses: { 200: { description: "Key details.", content: { "application/json": { schema: { type: "object" } } } }, 401: errorRef },
         },
       },
+      [`/${API_VERSION}${PROCESS_PATH}`]: process,
       ...paths,
     },
     components: {

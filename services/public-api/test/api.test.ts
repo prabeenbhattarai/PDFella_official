@@ -82,9 +82,29 @@ describe("public API", () => {
     expect(await res.text()).toContain("invoice total");
   });
 
+  it("runs every tool through the single /process endpoint", async () => {
+    const merged = await post("/process", { tool: "merge", files: [sample, sample] });
+    expect(merged.status).toBe(200);
+    expect(merged.headers.get("x-pdfella-tool")).toBe("merge");
+    expect(await pages(merged)).toBe(6);
+    expect(await pages(await post("/process", { tool: "delete-pages", file: sample, pages: "1-2" }))).toBe(1);
+    const text = await post("/process", { tool: "pdf-to-text", file: readFileSync(path.resolve("tests/fixtures/words.pdf")) });
+    expect(await text.text()).toContain("invoice total");
+  });
+
+  it("explains a missing or unknown tool", async () => {
+    const missing = await post("/process", { file: sample });
+    expect(missing.status).toBe(400);
+    expect((await missing.json()).error.message).toContain("`tool` is required");
+    const unknown = await post("/process", { tool: "ocr", file: sample });
+    expect(unknown.status).toBe(400);
+    expect((await unknown.json()).error.message).toContain("Unknown `tool`");
+  });
+
   it("serves an OpenAPI document covering every endpoint", async () => {
     const doc = await (await app.request("/v1/openapi.json")).json();
     for (const e of ENDPOINTS) expect(doc.paths[`/v1${e.path}`], e.path).toBeDefined();
+    expect(doc.paths["/v1/process"].post.requestBody.content["multipart/form-data"].schema.properties.tool.enum).toEqual(ENDPOINTS.map((e) => e.id));
   });
 
   it("meters usage per key", async () => {

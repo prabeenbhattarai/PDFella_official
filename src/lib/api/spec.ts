@@ -234,6 +234,13 @@ export const ENDPOINTS: ApiEndpoint[] = [
   },
 ];
 
+/**
+ * The single endpoint: POST /v1/process with a `tool` field (an endpoint id)
+ * runs that tool with the same files and params as its own path.
+ */
+export const PROCESS_PATH = "/process";
+export const endpointById = (id: string) => ENDPOINTS.find((e) => e.id === id);
+
 /** Every PDF-reading endpoint also takes the optional input password. */
 export function paramsOf(e: ApiEndpoint): ApiParam[] {
   return e.files.some((f) => f.accepts.includes("pdf")) ? [...e.params, PASSWORD_PARAM] : e.params;
