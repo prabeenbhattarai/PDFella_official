@@ -1,13 +1,14 @@
 {
   "name": "pdfella-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PDFella for macOS and Windows: a native window around www.pdfella.com.",
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
     "build:mac": "tauri build --target universal-apple-darwin",
-    "icons": "tauri icon ../src/app/icon.svg"
+    "icons": "tauri icon ../src/app/icon.svg",
+    "tauri": "tauri"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"
