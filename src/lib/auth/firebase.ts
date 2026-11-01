@@ -25,10 +25,10 @@ export function getFirebaseAuth(): Promise<Auth> {
 export const toAuthUser = (u: User): AuthUser => ({ uid: u.uid, name: u.displayName, email: u.email, photo: u.photoURL });
 
 /** The "Continue with Google" button: Google's account chooser in a popup. */
-export async function signInWithGoogle() {
+export async function signInWithGoogle(loginHint?: string) {
   const [auth, { GoogleAuthProvider, signInWithPopup }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
   const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: "select_account" });
+  provider.setCustomParameters({ prompt: "select_account", ...(loginHint ? { login_hint: loginHint } : {}) });
   await signInWithPopup(auth, provider);
 }
 

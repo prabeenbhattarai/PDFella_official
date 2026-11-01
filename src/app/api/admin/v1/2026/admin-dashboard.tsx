@@ -9,6 +9,9 @@ import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
 import type { UserStats, VisitorStats } from "@/lib/server/admin";
 
+/** The only account that may sign in here. The server checks this too (ADMIN_EMAILS). */
+const OWNER = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "prabeenbhattarai7450@gmail.com").toLowerCase();
+
 type Part<T> = { data: T } | { error: string };
 interface Stats { admin: string; generatedAt: string; users: Part<UserStats>; visitors: Part<VisitorStats> }
 type Win = "d1" | "d7" | "d30";
@@ -57,29 +60,38 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [win, setWin] = useState<Win>("d7");
+  const [rejected, setRejected] = useState<string | null>(null);
+  const isOwner = user?.email?.toLowerCase() === OWNER;
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const token = await currentIdToken();
-      const res = await fetch("/api/admin/v1/2026/stats", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+      const res = await fetch("/api/admin/v1/2026/overview", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body) {
         setStats(null);
         setError({ status: res.status, message: body?.message ?? `The server returned an error (${res.status}).` });
       } else setStats(body);
     } catch {
-      setError({ status: 0, message: "Couldn't reach the server." });
+      setError({ status: 0, message: "The request didn't reach the server. If you use an ad or tracker blocker, allow pdfella.com and try again." });
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (user) void load();
-    else setStats(null);
-  }, [user, load]);
+    if (!user) { setStats(null); return; }
+    // Any other Google account is signed straight back out; we never ask the server for data.
+    if (!isOwner) {
+      setRejected(user.email ?? "That account");
+      void signOutUser();
+      return;
+    }
+    setRejected(null);
+    void load();
+  }, [user, isOwner, load]);
 
   if (!authEnabled) return <Shell><Missing text="Sign-in isn't configured (NEXT_PUBLIC_FIREBASE_* variables)." /></Shell>;
   if (!ready) return <Shell><Loader2 className="mx-auto mt-24 size-6 animate-spin text-ink-3" /></Shell>;
@@ -90,8 +102,9 @@ export function AdminDashboard() {
         <div className="mx-auto mt-16 max-w-sm rounded-3xl border border-border bg-surface p-8 text-center shadow-sm">
           <LogoMark className="mx-auto size-12" />
           <h1 className="mt-5 text-[22px] font-semibold tracking-tight text-ink">{brand.name} admin</h1>
-          <p className="mt-2 text-[14px] text-ink-3">Sign in with the administrator&apos;s Google account.</p>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await signInWithGoogle(); } catch { /* closed */ } finally { setBusy(false); } }}
+          <p className="mt-2 text-[14px] text-ink-3">Only the owner&apos;s Google account can sign in here.</p>
+          {rejected && <p role="alert" className="mt-4 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-danger">{rejected} isn&apos;t allowed. It has been signed out.</p>}
+          <button type="button" disabled={busy} onClick={async () => { setBusy(true); setRejected(null); try { await signInWithGoogle(OWNER); } catch { /* closed */ } finally { setBusy(false); } }}
             className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-strong bg-white text-[15px] font-semibold text-[#1f1f1f] hover:bg-[#f8f9fa] disabled:opacity-70">
             {busy ? <Loader2 className="size-5 animate-spin" /> : null} Sign in with Google
           </button>
@@ -99,6 +112,8 @@ export function AdminDashboard() {
       </Shell>
     );
   }
+
+  if (!isOwner) return <Shell><Loader2 className="mx-auto mt-24 size-6 animate-spin text-ink-3" /></Shell>;
 
   if (error?.status === 403) {
     return (
