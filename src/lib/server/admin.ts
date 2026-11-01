@@ -1,47 +1,22 @@
 import "server-only";
-import type { App } from "firebase-admin/app";
-import type { UserRecord } from "firebase-admin/auth";
+import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT } from "jose";
 
 /**
  * Admin panel back end. Access is decided here, on the server: the request must
  * carry a valid Firebase ID token for a verified Google account on the allowlist.
+ *
+ * This deliberately avoids firebase-admin: its token verifier loads an ES module
+ * via require(), which fails on the Node versions Vercel runs (ERR_REQUIRE_ESM).
+ * Tokens are verified as Firebase documents it, and users are read from the
+ * Identity Toolkit REST API with the service account.
  */
 export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "prabeenbhattarai7450@gmail.com")
   .split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-/**
- * Two Firebase Admin apps for the sign-in project:
- *  - "auth-verify" checks ID tokens. It needs only the project ID (Google's public
- *    signing keys), so a missing or broken service account can never block sign-in.
- *  - "auth-admin" lists users and needs the service account
- *    (FIREBASE_SERVICE_ACCOUNT: the key file's JSON, raw or base64).
- * Loaded on first use so a failure surfaces as a handled error, not a crashed route.
- */
-async function firebaseAuth(withCredential: boolean) {
-  const [{ cert, getApps, initializeApp }, { getAuth }] = await Promise.all([import("firebase-admin/app"), import("firebase-admin/auth")]);
-  const name = withCredential ? "auth-admin" : "auth-verify";
-  let app: App | undefined = getApps().find((a) => a.name === name);
-  if (!app) {
-    let credential;
-    if (withCredential) {
-      const raw = process.env.FIREBASE_SERVICE_ACCOUNT ?? "";
-      let parsed;
-      try {
-        parsed = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
-      } catch {
-        throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste the whole key file again.");
-      }
-      if (parsed.project_id && PROJECT_ID && parsed.project_id !== PROJECT_ID) {
-        throw new Error(`FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", but sign-in uses "${PROJECT_ID}".`);
-      }
-      credential = cert(parsed);
-    }
-    app = initializeApp({ projectId: PROJECT_ID, ...(credential ? { credential } : {}) }, name);
-  }
-  return getAuth(app);
-}
+// Google's public keys for Firebase ID tokens (cached and rotated by jose).
+const FIREBASE_KEYS = createRemoteJWKSet(new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"));
 
 export const canListUsers = () => !!process.env.FIREBASE_SERVICE_ACCOUNT;
 
@@ -56,17 +31,92 @@ export async function requireAdmin(req: Request): Promise<string> {
   if (!token) throw new AdminAuthError(401, "Sign in first.");
   let claims;
   try {
-    claims = await (await firebaseAuth(false)).verifyIdToken(token);
+    ({ payload: claims } = await jwtVerify(token, FIREBASE_KEYS, {
+      algorithms: ["RS256"],
+      audience: PROJECT_ID,
+      issuer: `https://securetoken.google.com/${PROJECT_ID}`,
+      clockTolerance: 30,
+    }));
+    if (!claims.sub) throw new Error("token has no subject");
   } catch (e) {
-    const code = (e as { code?: string }).code ?? "";
-    console.error("admin token check failed:", code, (e as Error).message);
-    throw new AdminAuthError(401, code === "auth/id-token-expired" ? "Your session has expired. Sign in again." : `Sign-in couldn't be verified (${code || "unknown error"}). Sign in again.`);
+    const code = (e as { code?: string }).code ?? (e as Error).message;
+    console.error("admin token check failed:", code);
+    throw new AdminAuthError(401, code === "ERR_JWT_EXPIRED" ? "Your session has expired. Sign in again." : `Sign-in couldn't be verified (${code}). Sign in again.`);
   }
-  const email = claims.email?.toLowerCase();
-  if (!email || !claims.email_verified || !ADMIN_EMAILS.includes(email)) {
+  const email = typeof claims.email === "string" ? claims.email.toLowerCase() : null;
+  if (!email || claims.email_verified !== true || !ADMIN_EMAILS.includes(email)) {
     throw new AdminAuthError(403, "This account isn't allowed to use the admin panel.");
   }
   return email;
+}
+
+// ───────── registered users (Identity Toolkit REST + service account)
+
+interface ServiceAccount { project_id?: string; client_email: string; private_key: string }
+
+function serviceAccount(): ServiceAccount {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT ?? "";
+  let parsed: ServiceAccount;
+  try {
+    parsed = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
+  } catch {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste the whole key file again.");
+  }
+  if (!parsed.client_email || !parsed.private_key) throw new Error("FIREBASE_SERVICE_ACCOUNT is missing client_email or private_key.");
+  if (parsed.project_id && PROJECT_ID && parsed.project_id !== PROJECT_ID) {
+    throw new Error(`FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", but sign-in uses "${PROJECT_ID}".`);
+  }
+  return parsed;
+}
+
+let accessToken: { value: string; expires: number } | null = null;
+
+/** OAuth access token for the service account (JWT bearer grant), cached until shortly before it expires. */
+async function googleAccessToken(): Promise<string> {
+  if (accessToken && accessToken.expires > Date.now() + 60_000) return accessToken.value;
+  const sa = serviceAccount();
+  let key;
+  try {
+    key = await importPKCS8(sa.private_key, "RS256");
+  } catch {
+    throw new Error("The private key in FIREBASE_SERVICE_ACCOUNT can't be read. Paste the whole key file again.");
+  }
+  const now = Math.floor(Date.now() / 1000);
+  const assertion = await new SignJWT({ scope: "https://www.googleapis.com/auth/identitytoolkit https://www.googleapis.com/auth/cloud-platform" })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT" })
+    .setIssuer(sa.client_email).setSubject(sa.client_email)
+    .setAudience("https://oauth2.googleapis.com/token")
+    .setIssuedAt(now).setExpirationTime(now + 3600)
+    .sign(key);
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion }),
+    cache: "no-store",
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`Google rejected the service account (${body.error_description ?? body.error ?? res.status}). If you deleted this key, generate a new one.`);
+  accessToken = { value: body.access_token, expires: Date.now() + (body.expires_in ?? 3600) * 1000 };
+  return accessToken.value;
+}
+
+interface RestUser { localId: string; email?: string; displayName?: string; photoUrl?: string; createdAt?: string; lastLoginAt?: string; lastRefreshAt?: string }
+
+async function listUsers(): Promise<RestUser[]> {
+  const token = await googleAccessToken();
+  const users: RestUser[] = [];
+  let next = "";
+  do {
+    const url = new URL(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}/accounts:batchGet`);
+    url.searchParams.set("maxResults", "1000");
+    if (next) url.searchParams.set("nextPageToken", next);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error?.message ?? `Listing users failed (${res.status})`);
+    users.push(...(body.users ?? []));
+    next = body.nextPageToken ?? "";
+  } while (next && users.length < 100_000);
+  return users;
 }
 
 const DAY = 864e5;
@@ -81,20 +131,13 @@ export interface UserStats {
 }
 
 export async function userStats(): Promise<UserStats> {
-  const auth = await firebaseAuth(true);
-  const users: UserRecord[] = [];
-  let pageToken: string | undefined;
-  do {
-    const page = await auth.listUsers(1000, pageToken);
-    users.push(...page.users);
-    pageToken = page.pageToken;
-  } while (pageToken && users.length < 100_000);
-
+  const users = await listUsers();
   const now = Date.now();
-  const created = (u: UserRecord) => Date.parse(u.metadata.creationTime);
-  const lastSeen = (u: UserRecord) => Date.parse(u.metadata.lastRefreshTime ?? u.metadata.lastSignInTime ?? u.metadata.creationTime);
+  const created = (u: RestUser) => Number(u.createdAt ?? 0);
+  const lastLogin = (u: RestUser) => (u.lastLoginAt ? Number(u.lastLoginAt) : null);
+  const lastSeen = (u: RestUser) => Math.max(created(u), lastLogin(u) ?? 0, u.lastRefreshAt ? Date.parse(u.lastRefreshAt) : 0);
   const within = (t: number, days: number) => now - t < days * DAY;
-  const count = (f: (u: UserRecord) => boolean) => users.filter(f).length;
+  const count = (f: (u: RestUser) => boolean) => users.filter(f).length;
 
   const daily = Array.from({ length: 30 }, (_, i) => {
     const date = new Date(now - (29 - i) * DAY).toISOString().slice(0, 10);
@@ -107,8 +150,8 @@ export async function userStats(): Promise<UserStats> {
     active: { d1: count((u) => within(lastSeen(u), 1)), d7: count((u) => within(lastSeen(u), 7)), d30: count((u) => within(lastSeen(u), 30)) },
     daily,
     recent: [...users].sort((a, b) => created(b) - created(a)).slice(0, 25).map((u) => ({
-      email: u.email ?? null, name: u.displayName ?? null, photo: u.photoURL ?? null,
-      createdAt: new Date(created(u)).toISOString(), lastSignInAt: u.metadata.lastSignInTime ? new Date(u.metadata.lastSignInTime).toISOString() : null,
+      email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null,
+      createdAt: new Date(created(u)).toISOString(), lastSignInAt: lastLogin(u) ? new Date(lastLogin(u)!).toISOString() : null,
     })),
   };
 }
