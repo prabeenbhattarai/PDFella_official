@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import {
   ArrowRight, Check, ChevronRight, Cloud, Laptop, AlertCircle, Lightbulb, Sparkles, Zap, ShieldCheck, Layers, Gauge, CalendarCheck,
 } from "lucide-react";
-import { tools, getTool, categories, type Tool } from "@/lib/tools";
+import { tools, getTool, categories, accountBadge, accountNeed, type Tool } from "@/lib/tools";
 import { getContent, CONTENT_UPDATED, type ToolContent } from "@/content/seo";
 import { brand } from "@/lib/brand";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
@@ -113,7 +113,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-2">{c.subtitle}</p>
           <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-ink-2">
             <li className="flex items-center gap-1.5">{tool.engine === "browser" ? <><Laptop className="size-4 text-accent" /> Runs in your browser</> : <><Cloud className="size-4 text-accent" /> Secure cloud · deleted within {JOB_TTL_MINUTES} min</>}</li>
-            <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> Free, no sign-up</li>
+            <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> {accountBadge(tool)}</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> No watermark</li>
           </ul>
           <div className="mx-auto mt-10 max-w-3xl rounded-3xl border border-border bg-surface p-4 text-left shadow-[0_30px_60px_-24px_rgb(0_0_0/.25)] sm:p-5">
@@ -240,7 +240,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
         <div className="relative overflow-hidden rounded-[2rem] bg-accent px-6 py-16 text-center text-accent-ink sm:px-16">
           <div className="pointer-events-none absolute inset-0 opacity-[.12] [background-image:radial-gradient(currentColor_1px,transparent_1.2px)] [background-size:20px_20px]" aria-hidden />
           <h2 className="relative font-display text-4xl leading-tight sm:text-5xl">Ready to {c.howToTitle.replace(/^How to /, "")}?</h2>
-          <p className="relative mx-auto mt-3 max-w-xl text-lg opacity-85">Free, private and done in seconds. No account needed.</p>
+          <p className="relative mx-auto mt-3 max-w-xl text-lg opacity-85">Free, private and done in seconds. {accountNeed(tool) === "required" ? "Just one click to sign in." : "No account needed to start."}</p>
           <a href="#top" className="relative mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-accent-ink px-7 font-semibold text-accent shadow-lg transition hover:opacity-90">Start now <ArrowRight className="size-4" /></a>
         </div>
       </section>

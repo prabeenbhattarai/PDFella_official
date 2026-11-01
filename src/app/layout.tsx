@@ -19,7 +19,7 @@ const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["nor
 export const metadata: Metadata = {
   metadataBase: new URL(brand.url),
   title: { default: `Free Online PDF Editor: Edit, Convert & Sign PDFs | ${brand.name}`, template: `%s | ${brand.name}` },
-  description: "Free online PDF editor. Edit PDF text, sign, merge, compress and convert PDF to Word or JPG to PDF in your browser. No sign-up, no watermark, private.",
+  description: "Free online PDF editor. Edit PDF text, sign, merge, compress and convert PDF to Word or JPG to PDF in your browser. Free, no watermark, no install, private.",
   applicationName: brand.name,
   keywords: ["pdf editor", "online pdf editor", "edit pdf", "free pdf editor", "pdf converter", "pdf to word", "jpg to pdf", "merge pdf", "compress pdf", "sign pdf"],
   authors: [{ name: brand.name }],

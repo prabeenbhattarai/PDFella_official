@@ -152,7 +152,7 @@ export function Dropzone({ accepts, multiple, onFiles, size = "default", title, 
       )}
       {hero && (
         <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm font-medium text-ink-2">
-          <li className="flex items-center gap-1.5"><UserX className="size-4" /> No account required</li>
+          <li className="flex items-center gap-1.5"><UserX className="size-4" /> Most tools need no account</li>
           <li className="flex items-center gap-1.5"><Zap className="size-4" /> Edits run in your browser</li>
           <li className="flex items-center gap-1.5"><ShieldCheck className="size-4" /> Private by default</li>
         </ul>

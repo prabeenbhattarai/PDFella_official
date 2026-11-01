@@ -2,7 +2,7 @@ import type { ToolContent } from "./types";
 
 const UPLOAD_STEP = (what = "PDF") => ({
   title: `Upload your ${what}`,
-  body: `Drag your ${what} onto the upload area, or click Upload document and choose it from your computer or phone. It opens instantly in the editor. No account and no installation needed.`,
+  body: `Drag your ${what} onto the upload area, or click Upload document and choose it from your computer or phone. It opens instantly in the editor. No installation needed.`,
   shot: 1,
 });
 
@@ -11,8 +11,8 @@ export const editContent: ToolContent[] = [
     slug: "edit-pdf",
     keyword: "edit pdf",
     keywords: ["pdf editor", "online pdf editor", "edit pdf online", "free pdf editor", "edit pdf text", "pdf editor online free"],
-    metaTitle: "Edit PDF Online Free: PDF Editor, No Sign-Up | PDFella",
-    metaDescription: "Edit PDF files online for free. Change existing text, add text, images, shapes and signatures, then download a real PDF. No sign-up, works in your browser.",
+    metaTitle: "Edit PDF Online Free: PDF Editor, No Install | PDFella",
+    metaDescription: "Edit PDF files online for free. Change existing text, add text, images, shapes and signatures, then download a real PDF. No install, works in your browser.",
     h1: "Edit PDF online, free",
     subtitle: "A free online PDF editor that changes the text already in your PDF, not just what sits on top. Add text, images, shapes and signatures, then download a clean PDF.",
     quickAnswer: "To edit a PDF online, upload it to PDFella's free PDF editor, double-click any sentence to change its text, use the toolbar to add text, images, shapes or a signature, then click Save changes and Download PDF. Editing runs in your browser, so the file is never uploaded.",
@@ -28,7 +28,7 @@ export const editContent: ToolContent[] = [
       { title: "Real text editing", body: "The original words are removed from the PDF and replaced, so the edited text is searchable and selectable, not just painted over." },
       { title: "Private by default", body: "Your PDF is edited on your own device. It isn't uploaded to our servers, and nothing is kept after you close the tab." },
       { title: "Everything in one editor", body: "Text, whiteout, highlights, drawings, shapes, images, signatures, comments, links, form fields and page organising." },
-      { title: "Free with no sign-up", body: "No account, no watermark, no trial. Open the editor and start working straight away on any device." },
+      { title: "Free, no watermark", body: "No watermark and no trial. Start editing straight away on any device; a free one-click Google sign-in unlocks signatures, stamps, extra pages and font styles." },
     ],
     sections: [
       {
@@ -57,7 +57,7 @@ export const editContent: ToolContent[] = [
       { who: "HR and admin teams", what: "Update policy documents, sign letters and add comments for colleagues." },
     ],
     faq: [
-      { q: "Is this PDF editor really free?", a: "Yes. Editing, signing, annotating and downloading are free, with no account, no watermark and no trial period." },
+      { q: "Is this PDF editor really free?", a: "Yes. Editing, annotating and downloading are free, with no watermark and no trial period. Signatures, stamps, adding pages and font styles need a free one-click Google sign-in." },
       { q: "Can I edit the existing text in my PDF?", a: "Yes. Double-click any word or sentence with the Select tool and type. The original text is removed from the PDF and replaced at the same position, size and style." },
       { q: "Is my PDF uploaded to a server?", a: "No. The PDF editor runs entirely in your browser, so your document stays on your device." },
       { q: "Will the edited PDF have a watermark?", a: "No. Downloaded files are clean PDFs with no watermark or branding added." },
@@ -71,7 +71,7 @@ export const editContent: ToolContent[] = [
     keyword: "add text to pdf",
     keywords: ["type on pdf", "write on pdf", "insert text into pdf", "add text box to pdf"],
     metaTitle: "Add Text to PDF Online Free: Type on Any PDF | PDFella",
-    metaDescription: "Add text to a PDF online in seconds. Type anywhere on the page and choose font, size, colour and alignment. Free, no sign-up, no watermark.",
+    metaDescription: "Add text to a PDF online in seconds. Type anywhere on the page and choose font, size, colour and alignment. Free, no watermark.",
     h1: "Add text to PDF",
     subtitle: "Type anywhere on a PDF, with full control over font, size, colour, alignment and background.",
     quickAnswer: "To add text to a PDF, open it in PDFella, choose Add text from the tool bar, click where you want the text and start typing. Adjust the font, size and colour in the side panel, then click Save changes and Download PDF.",
@@ -100,7 +100,7 @@ export const editContent: ToolContent[] = [
       { who: "Small businesses", what: "Add a reference number or note to an invoice before sending it." },
     ],
     faq: [
-      { q: "How do I type on a PDF for free?", a: "Open the PDF in PDFella, choose Add text, click on the page and type. Then save and download. It's free and needs no account." },
+      { q: "How do I type on a PDF for free?", a: "Open the PDF in PDFella, choose Add text, click on the page and type. Then save and download. It's free; changing fonts and bold or italic styles needs a free one-click Google sign-in." },
       { q: "Can I change the font of added text?", a: "Yes. Choose Helvetica (Arial), Times or Courier, set any size, and make text bold, italic or underlined." },
       { q: "Will the text be searchable?", a: "Yes. Text is written into the PDF as real text, so it can be searched and selected." },
       { q: "Can I add text in other languages?", a: "Yes. Latin-script text is written as real text; other scripts such as Devanagari or Chinese are added as a high-resolution image so they display correctly." },
@@ -239,7 +239,7 @@ export const editContent: ToolContent[] = [
     keyword: "annotate pdf",
     keywords: ["pdf annotator", "comment on pdf", "add sticky notes to pdf", "pdf stamps", "mark up pdf"],
     metaTitle: "Annotate PDF Online Free: Comments, Notes & Stamps | PDFella",
-    metaDescription: "Annotate PDFs online with sticky-note comments, stamps, checkmarks, shapes and links. Notes are saved as real PDF annotations. Free, no sign-up.",
+    metaDescription: "Annotate PDFs online with sticky-note comments, stamps, checkmarks, shapes and links. Notes are saved as real PDF annotations. Free, no watermark.",
     h1: "Annotate PDF online",
     subtitle: "Add sticky-note comments, approval stamps, checkmarks, shapes and hyperlinks. Comments are saved as real PDF annotations.",
     quickAnswer: "To annotate a PDF, open it in PDFella and use the tool bar: Comment adds sticky notes, Stamps adds Approved, Draft or Confidential stamps and checkmarks, Markup highlights text and Shapes adds arrows and boxes. Save changes and download. Comments open in any PDF reader.",
@@ -271,7 +271,7 @@ export const editContent: ToolContent[] = [
       { q: "Will my comments show in Adobe Acrobat?", a: "Yes. Sticky notes are saved as standard PDF text annotations." },
       { q: "Can I create custom stamps?", a: "Yes. Place a stamp and edit its text and colour." },
       { q: "Can I add hyperlinks to a PDF?", a: "Yes. Use the Link tool to make any area link to a web address or email." },
-      { q: "Is annotating free?", a: "Yes. All annotation tools are free with no account." },
+      { q: "Is annotating free?", a: "Yes, all annotation tools are free. Comments, checkmarks, shapes and links work without an account; stamps need a free one-click Google sign-in." },
       { q: "Is my document uploaded?", a: "No. Annotation runs in your browser." },
       { q: "Can I annotate on a phone?", a: "Yes. The editor adapts to phones and tablets with a bottom tool bar." },
     ],
@@ -362,7 +362,7 @@ export const editContent: ToolContent[] = [
     keyword: "sign pdf",
     keywords: ["sign pdf online", "electronic signature pdf", "add signature to pdf", "e-sign pdf free", "sign pdf free"],
     metaTitle: "Sign PDF Online Free: Add Your Signature | PDFella",
-    metaDescription: "Sign PDF documents online for free. Type, draw or upload your signature, place it anywhere, add the date and download. No account, nothing uploaded.",
+    metaDescription: "Sign PDFs online for free. Type, draw or upload your signature, place it anywhere and download. One-click Google sign-in; your file is never uploaded.",
     h1: "Sign PDF online, free",
     subtitle: "Type, draw or upload your signature, place it on any page, and download the signed PDF in seconds.",
     quickAnswer: "To sign a PDF online, open it in PDFella, choose Sign in the tool bar, then type your name, draw your signature or upload an image of it. Click on the page to place it, resize it to fit, then click Save changes and Download PDF.",
@@ -391,7 +391,7 @@ export const editContent: ToolContent[] = [
       { who: "HR", what: "Sign offer letters and policy acknowledgements." },
     ],
     faq: [
-      { q: "How do I sign a PDF for free?", a: "Open the PDF in PDFella, choose Sign, type, draw or upload your signature, click to place it, then save and download. No account is needed." },
+      { q: "How do I sign a PDF for free?", a: "Open the PDF in PDFella, choose Sign, type, draw or upload your signature, click to place it, then save and download. Signing needs a free one-click Google sign-in, so your signatures stay yours." },
       { q: "Is my signature saved anywhere?", a: "No. It's kept only in your current browser tab and is never uploaded or stored." },
       { q: "Can I sign a PDF on my phone?", a: "Yes. Draw your signature with your finger in any mobile browser." },
       { q: "Can I add the date next to my signature?", a: "Yes. Use Add text to type the date anywhere on the page." },

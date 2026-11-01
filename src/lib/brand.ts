@@ -11,7 +11,7 @@ export const brand = {
   name: "PDFella",
   tagline: "Everything you need to work with PDFs.",
   description:
-    "Edit, convert, sign, compress, organise and protect your documents online, without installing software or creating an account.",
+    "Edit, convert, sign, compress, organise and protect your documents online, without installing software. Most tools need no account.",
   url: siteUrl,
   /** Other ways people write the name (structured data `alternateName`, not keyword stuffing). */
   alternateNames: ["PDF Ella", "PDF-Ella", "Pdfella"],

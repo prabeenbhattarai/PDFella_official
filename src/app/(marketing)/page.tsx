@@ -15,8 +15,8 @@ import { jsonLdScript, siteJsonLd } from "@/lib/seo";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
 
 const faq = [
-  { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no sign-up and no watermark.` },
-  { q: `Is ${brand.name} free to use?`, a: "Yes. Editing, signing, organising and most conversions are free with generous limits and no account. Heavier cloud processing (OCR, Office conversion) has a daily allowance." },
+  { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
+  { q: `Is ${brand.name} free to use?`, a: "Yes. Every tool is free with generous limits, and most work without an account. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in. Heavier cloud processing (OCR, Office conversion) has a daily allowance." },
   { q: "Do I need to create an account?", a: "No. Drop a file and start working. Accounts will be optional and only add conveniences like saved signatures and document history." },
   { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` },
   { q: "Can I really edit the existing text in a PDF?", a: "Yes. Double-click any word or sentence and type. The original text is removed from the PDF and replaced at the same position, size and style." },
@@ -38,7 +38,7 @@ const useCases = [
 
 const comparison: [string, boolean | string, boolean | string][] = [
   ["Works instantly in the browser", true, false],
-  ["No account or licence key", true, false],
+  ["Most tools without an account or licence key", true, false],
   ["Edit existing text, sign, annotate", true, true],
   ["Convert to and from Office", true, true],
   ["OCR for scanned documents", true, "Paid tier"],
@@ -218,7 +218,7 @@ export default function LandingPage() {
           <Heading eyebrow={`Why ${brand.name}`} title={`Why choose ${brand.name}'s free PDF editor`} intro="Fast to start, private by default, and the files you download are real, well-made PDFs." />
           <InView as="ul" className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { art: <WhyInstant />, t: "Works immediately", d: "No sign-up, no install, no trial. Drop a file and you're editing in seconds.", tag: "Instant" },
+              { art: <WhyInstant />, t: "Works immediately", d: "No install, no trial, and no sign-up for most tools. Drop a file and you're editing in seconds.", tag: "Instant" },
               { art: <WhyPrivate />, t: "Private by design", d: "Editing and most conversions run on your device. Cloud tools delete files automatically.", tag: "Private" },
               { art: <WhyRealPdf />, t: "Real PDF output", d: "Text stays text and vectors stay vectors. Exports open in any PDF reader.", tag: "Quality" },
               { art: <WhyBigFiles />, t: "Built for big files", d: "Pages render lazily, so 500-page documents stay smooth.", tag: "Performance" },
@@ -339,13 +339,13 @@ export default function LandingPage() {
           <div className="float-a absolute top-12 right-[8%] hidden w-14 md:block" style={{ ["--r" as string]: "12deg", animationDelay: "-2s" }} aria-hidden><FileIcon type="XLSX" /></div>
           <div className="float-b absolute right-[15%] bottom-12 hidden w-16 md:block" style={{ ["--r" as string]: "-8deg", animationDelay: "-3s" }} aria-hidden><FileIcon type="JPG" /></div>
           <h2 className="relative font-display text-5xl leading-tight sm:text-6xl">Your next document is one drop away.</h2>
-          <p className="relative mx-auto mt-4 max-w-xl text-lg opacity-85">Open the editor and start working. No account, no install, no catch.</p>
+          <p className="relative mx-auto mt-4 max-w-xl text-lg opacity-85">Open the editor and start working. Free, no install, no catch.</p>
           <div className="relative mt-9 flex flex-wrap justify-center gap-3">
             <Link href="/editor" className="inline-flex h-12 items-center gap-2 rounded-full bg-accent-ink px-7 font-semibold text-accent shadow-lg transition hover:opacity-90">Open the editor <ArrowRight className="size-4" /></Link>
             <Link href="#tools" className="inline-flex h-12 items-center rounded-full border border-current/30 px-7 font-semibold transition hover:bg-white/10">Browse all tools</Link>
           </div>
           <ul className="relative mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm opacity-85">
-            <li className="flex items-center gap-1.5"><UserX className="size-4" /> No account</li>
+            <li className="flex items-center gap-1.5"><UserX className="size-4" /> Most tools need no account</li>
             <li className="flex items-center gap-1.5"><Zap className="size-4" /> Runs in your browser</li>
             <li className="flex items-center gap-1.5"><ShieldCheck className="size-4" /> Private by default</li>
           </ul>

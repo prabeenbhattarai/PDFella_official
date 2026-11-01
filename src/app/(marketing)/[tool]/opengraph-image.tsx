@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getTool, tools, categories } from "@/lib/tools";
+import { getTool, tools, categories, accountNeed } from "@/lib/tools";
 import { getContent } from "@/content/seo";
 
 export const size = { width: 1200, height: 630 };
@@ -36,7 +36,7 @@ export default async function OgImage({ params }: { params: Promise<{ tool: stri
           <div style={{ fontSize: 32, color: "#353942", lineHeight: 1.35, maxWidth: 980 }}>{c.subtitle}</div>
         </div>
         <div style={{ display: "flex", gap: 30, fontSize: 26, fontWeight: 600, color: "#0c7a64" }}>
-          {["Free", "No sign-up", "No watermark", t.engine === "browser" ? "Runs in your browser" : "Files auto-deleted"].map((x) => (
+          {["Free", accountNeed(t) === "required" ? "One-click sign-in" : "No sign-up", "No watermark", t.engine === "browser" ? "Runs in your browser" : "Files auto-deleted"].map((x) => (
             <div key={x} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 14, height: 14, borderRadius: 999, background: "#0c7a64", display: "flex" }} />{x}
             </div>

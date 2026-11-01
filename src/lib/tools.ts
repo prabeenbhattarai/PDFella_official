@@ -66,7 +66,7 @@ const IMAGES: DetectedKind[] = ["png", "jpg", "webp"];
 const OFFICE: DetectedKind[] = ["docx", "xlsx", "pptx", "odt", "txt"];
 
 const commonEditFaq = [
-  { q: "Do I need an account?", a: "No. Open a file and start working. Nothing is required to sign up for." },
+  { q: "Do I need an account?", a: "Not to get started. Open a file and start editing. Signatures, stamps, adding pages and font styles need a free one-click Google sign-in." },
   { q: "Are my files uploaded?", a: "Editing happens entirely in your browser. Your PDF is not sent to our servers for this tool." },
 ];
 const serverFaq = [
@@ -78,7 +78,7 @@ export const tools: Tool[] = [
   // ───────── Edit
   {
     slug: "edit-pdf", name: "Edit PDF", blurb: "Change text, add images, shapes and more.",
-    title: "Edit PDF online", description: "Edit PDF text, add new text, images, shapes and signatures directly in your browser. Free, fast and no account required.",
+    title: "Edit PDF online", description: "Edit PDF text, add new text, images, shapes and signatures directly in your browser. Free and fast, with no install.",
     category: "edit", icon: "PenLine", accepts: PDF, workspace: { type: "editor" }, engine: "browser",
     features: ["Edit existing text in place", "Add text with full formatting", "Whiteout, highlight and draw", "Insert images and signatures", "Reorder, rotate and delete pages", "Undo, redo and auto-save"],
     faq: [...commonEditFaq, { q: "Can I edit the original text of a PDF?", a: "Yes. Choose Edit text and click any line. When the embedded font allows it the original text is replaced; otherwise it is covered and re-typeset at the same position, size and style." }],
@@ -374,6 +374,22 @@ export const toolBySlug = new Map(tools.map((t) => [t.slug, t]));
 
 export function getTool(slug: string): Tool | undefined {
   return toolBySlug.get(slug);
+}
+
+/**
+ * Whether a tool needs the free account (lib/auth): "required" when its main
+ * feature is gated (signing), "extras" for editor tools where only signatures,
+ * stamps, adding pages and font styles are, otherwise "none".
+ */
+export function accountNeed(t: Tool): "required" | "extras" | "none" {
+  if (t.slug === "sign-pdf") return "required";
+  return t.workspace.type === "editor" ? "extras" : "none";
+}
+
+/** Short badge text matching accountNeed(). */
+export function accountBadge(t: Tool): string {
+  const need = accountNeed(t);
+  return need === "required" ? "Free with one-click sign-in" : need === "extras" ? "Free, no sign-up to start" : "Free, no sign-up";
 }
 
 export function toolsIn(category: ToolCategory): Tool[] {
