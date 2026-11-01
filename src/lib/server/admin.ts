@@ -54,14 +54,38 @@ export async function requireAdmin(req: Request): Promise<string> {
 
 interface ServiceAccount { project_id?: string; client_email: string; private_key: string }
 
-function serviceAccount(): ServiceAccount {
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT ?? "";
-  let parsed: ServiceAccount;
-  try {
-    parsed = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
-  } catch {
-    throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste the whole key file again.");
+/**
+ * Accepts the key file however it was pasted: raw JSON, base64 of it, wrapped in
+ * quotes or a code fence, or with the private key's "\n" escapes turned into real
+ * line breaks (which some dashboards do and which makes the JSON invalid).
+ */
+function parseServiceAccount(raw: string): ServiceAccount | null {
+  let text = raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, "").trim();
+  if (text.startsWith('"')) {
+    // The whole file pasted as one JSON string.
+    try { const inner = JSON.parse(text); if (typeof inner === "string") text = inner.trim(); } catch { text = text.slice(1, -1); }
+  } else if (text.startsWith("'") && text.endsWith("'")) text = text.slice(1, -1);
+  if (!text.startsWith("{")) {
+    try { text = Buffer.from(text, "base64").toString("utf8").trim(); } catch { return null; }
   }
+  const attempts = [
+    text,
+    // Real line breaks inside the private key string → JSON escapes.
+    text.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (_, a: string, key: string, b: string) => a + key.replace(/\r?\n/g, "\\n") + b),
+  ];
+  for (const t of attempts) {
+    try {
+      const v = JSON.parse(t);
+      // Pasted as a JSON string of JSON.
+      return typeof v === "string" ? JSON.parse(v) : v;
+    } catch { /* next attempt */ }
+  }
+  return null;
+}
+
+function serviceAccount(): ServiceAccount {
+  const parsed = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT ?? "");
+  if (!parsed) throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste it as base64 instead (see the setup notes).");
   if (!parsed.client_email || !parsed.private_key) throw new Error("FIREBASE_SERVICE_ACCOUNT is missing client_email or private_key.");
   if (parsed.project_id && PROJECT_ID && parsed.project_id !== PROJECT_ID) {
     throw new Error(`FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", but sign-in uses "${PROJECT_ID}".`);
@@ -187,7 +211,12 @@ export async function visitorStats(): Promise<VisitorStats> {
       }),
       cache: "no-store",
     });
-    if (!res.ok) throw new Error(`PostHog query failed (${res.status})`);
+    if (!res.ok) {
+      const detail = await res.json().then((b) => b.detail ?? b.message ?? "", () => "");
+      throw new Error(res.status === 403
+        ? `PostHog refused the key (403${detail ? `: ${detail}` : ""}). Give the personal API key the "Query: Read" scope and access to project ${PH_PROJECT}.`
+        : `PostHog query failed (${res.status}${detail ? `: ${detail}` : ""})`);
+    }
     const rows = ((await res.json()).results ?? []) as [string, number, number][];
     const signedIn = rows.find((r) => r[0] === "in")?.[1] ?? 0;
     const guests = rows.find((r) => r[0] === "out")?.[1] ?? 0;
