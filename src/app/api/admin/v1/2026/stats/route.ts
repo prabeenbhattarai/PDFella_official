@@ -1,0 +1,26 @@
+import { json, fail } from "@/lib/server/http";
+import { AdminAuthError, canListUsers, canQueryVisitors, requireAdmin, userStats, visitorStats } from "@/lib/server/admin";
+
+export const dynamic = "force-dynamic";
+
+/** Admin dashboard numbers. Only for allowlisted, verified Google accounts. */
+export async function GET(req: Request) {
+  let admin: string;
+  try {
+    admin = await requireAdmin(req);
+  } catch (e) {
+    if (e instanceof AdminAuthError) return fail(e.status, e.status === 401 ? "unauthorized" : "forbidden", e.message);
+    throw e;
+  }
+
+  // Each source fails on its own, so a missing PostHog key doesn't hide the user numbers.
+  const [users, visitors] = await Promise.all([
+    canListUsers()
+      ? userStats().then((data) => ({ data }), (e) => ({ error: `Couldn't read users: ${(e as Error).message}` }))
+      : { error: "Add FIREBASE_SERVICE_ACCOUNT to read registered users." },
+    canQueryVisitors()
+      ? visitorStats().then((data) => ({ data }), (e) => ({ error: `Couldn't read visitors: ${(e as Error).message}` }))
+      : { error: "Add POSTHOG_PERSONAL_API_KEY and POSTHOG_PROJECT_ID to count visitors." },
+  ]);
+  return json({ admin, generatedAt: new Date().toISOString(), users, visitors }, 200, { "X-Robots-Tag": "noindex" });
+}

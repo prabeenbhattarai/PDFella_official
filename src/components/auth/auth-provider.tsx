@@ -52,7 +52,7 @@ export function AuthProvider() {
   }, [ready, user, editor]);
 
   // Everywhere else: One Tap, so returning visitors sign in with a single tap.
-  useOneTap(authEnabled && ready && !user && !editor);
+  useOneTap(authEnabled && ready && !user && !editor && !pathname.startsWith("/api/admin"));
 
   return authEnabled ? <SignInDialog /> : null;
 }

@@ -42,3 +42,9 @@ export async function signOutUser() {
   const [auth, { signOut }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
   await signOut(auth);
 }
+
+/** The signed-in user's Firebase ID token, for calling our own APIs. */
+export async function currentIdToken(): Promise<string | null> {
+  const auth = await getFirebaseAuth();
+  return auth.currentUser ? auth.currentUser.getIdToken() : null;
+}

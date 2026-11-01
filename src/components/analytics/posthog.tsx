@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { CaptureResult } from "posthog-js";
+import { useAuth } from "@/lib/auth/store";
 
 /**
  * PostHog product analytics. Loads only when NEXT_PUBLIC_POSTHOG_KEY is set, and
@@ -27,6 +28,7 @@ export function PostHogAnalytics() {
   useEffect(() => {
     if (!KEY) return;
     let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
     // Loaded after hydration so it never weighs on first paint.
     import("posthog-js").then(({ default: posthog }) => {
       if (cancelled || posthog.__loaded) return;
@@ -44,9 +46,14 @@ export function PostHogAnalytics() {
         before_send: scrub,
       });
       window.__pdfellaAnalytics = (event, props) => posthog.capture(event, props);
+      // Lets the admin panel split visitors into signed-in and not registered.
+      const tag = (signedIn: boolean) => posthog.register({ signed_in: signedIn });
+      tag(!!useAuth.getState().user);
+      unsubscribe = useAuth.subscribe((s, prev) => { if (!!s.user !== !!prev.user) tag(!!s.user); });
     });
     return () => {
       cancelled = true;
+      unsubscribe?.();
     };
   }, []);
   return null;
