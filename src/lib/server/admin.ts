@@ -12,26 +12,35 @@ export const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "prabeenbhattarai7450@g
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
 /**
- * Firebase Admin for the sign-in project. Verifying ID tokens needs only the
- * project ID; listing users needs a service account
- * (FIREBASE_SERVICE_ACCOUNT: the key file's JSON, raw or base64).
+ * Two Firebase Admin apps for the sign-in project:
+ *  - "auth-verify" checks ID tokens. It needs only the project ID (Google's public
+ *    signing keys), so a missing or broken service account can never block sign-in.
+ *  - "auth-admin" lists users and needs the service account
+ *    (FIREBASE_SERVICE_ACCOUNT: the key file's JSON, raw or base64).
+ * Loaded on first use so a failure surfaces as a handled error, not a crashed route.
  */
-/** Loaded on first use so a failure surfaces as a handled error, not a crashed route. */
-async function adminAuth() {
-  const [app, { getAuth }] = await Promise.all([import("firebase-admin/app"), import("firebase-admin/auth")]);
-  return getAuth(authApp(app));
-}
-
-function authApp({ cert, getApps, initializeApp }: typeof import("firebase-admin/app")): App {
-  const existing = getApps().find((a) => a.name === "auth-admin");
-  if (existing) return existing;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
-  let credential;
-  if (raw) {
-    const json = raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8");
-    credential = cert(JSON.parse(json));
+async function firebaseAuth(withCredential: boolean) {
+  const [{ cert, getApps, initializeApp }, { getAuth }] = await Promise.all([import("firebase-admin/app"), import("firebase-admin/auth")]);
+  const name = withCredential ? "auth-admin" : "auth-verify";
+  let app: App | undefined = getApps().find((a) => a.name === name);
+  if (!app) {
+    let credential;
+    if (withCredential) {
+      const raw = process.env.FIREBASE_SERVICE_ACCOUNT ?? "";
+      let parsed;
+      try {
+        parsed = JSON.parse(raw.trim().startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
+      } catch {
+        throw new Error("FIREBASE_SERVICE_ACCOUNT isn't valid JSON. Paste the whole key file again.");
+      }
+      if (parsed.project_id && PROJECT_ID && parsed.project_id !== PROJECT_ID) {
+        throw new Error(`FIREBASE_SERVICE_ACCOUNT is for project "${parsed.project_id}", but sign-in uses "${PROJECT_ID}".`);
+      }
+      credential = cert(parsed);
+    }
+    app = initializeApp({ projectId: PROJECT_ID, ...(credential ? { credential } : {}) }, name);
   }
-  return initializeApp({ projectId: PROJECT_ID, ...(credential ? { credential } : {}) }, "auth-admin");
+  return getAuth(app);
 }
 
 export const canListUsers = () => !!process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -47,10 +56,11 @@ export async function requireAdmin(req: Request): Promise<string> {
   if (!token) throw new AdminAuthError(401, "Sign in first.");
   let claims;
   try {
-    // Checking revocation looks the user up, which needs the service account.
-    claims = await (await adminAuth()).verifyIdToken(token, canListUsers());
-  } catch {
-    throw new AdminAuthError(401, "Your session has expired. Sign in again.");
+    claims = await (await firebaseAuth(false)).verifyIdToken(token);
+  } catch (e) {
+    const code = (e as { code?: string }).code ?? "";
+    console.error("admin token check failed:", code, (e as Error).message);
+    throw new AdminAuthError(401, code === "auth/id-token-expired" ? "Your session has expired. Sign in again." : `Sign-in couldn't be verified (${code || "unknown error"}). Sign in again.`);
   }
   const email = claims.email?.toLowerCase();
   if (!email || !claims.email_verified || !ADMIN_EMAILS.includes(email)) {
@@ -71,7 +81,7 @@ export interface UserStats {
 }
 
 export async function userStats(): Promise<UserStats> {
-  const auth = await adminAuth();
+  const auth = await firebaseAuth(true);
   const users: UserRecord[] = [];
   let pageToken: string | undefined;
   do {
