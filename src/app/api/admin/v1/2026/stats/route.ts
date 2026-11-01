@@ -10,7 +10,9 @@ export async function GET(req: Request) {
     admin = await requireAdmin(req);
   } catch (e) {
     if (e instanceof AdminAuthError) return fail(e.status, e.status === 401 ? "unauthorized" : "forbidden", e.message);
-    throw e;
+    // Details go to the logs only: this runs before we know who is asking.
+    console.error("admin auth backend failed:", e);
+    return fail(500, "internal", "The admin back end failed to start. See the Vercel function logs.");
   }
 
   // Each source fails on its own, so a missing PostHog key doesn't hide the user numbers.

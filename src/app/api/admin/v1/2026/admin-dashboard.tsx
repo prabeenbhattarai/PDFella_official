@@ -64,9 +64,11 @@ export function AdminDashboard() {
     try {
       const token = await currentIdToken();
       const res = await fetch("/api/admin/v1/2026/stats", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-      const body = await res.json();
-      if (!res.ok) setError({ status: res.status, message: body.message ?? "Something went wrong." });
-      else setStats(body);
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body) {
+        setStats(null);
+        setError({ status: res.status, message: body?.message ?? `The server returned an error (${res.status}).` });
+      } else setStats(body);
     } catch {
       setError({ status: 0, message: "Couldn't reach the server." });
     } finally {
@@ -111,8 +113,29 @@ export function AdminDashboard() {
     );
   }
 
-  const v = stats && "data" in stats.visitors ? stats.visitors.data[win] : null;
-  const u = stats && "data" in stats.users ? stats.users.data : null;
+  // Nothing below renders until the server has confirmed this account is an admin.
+  if (!stats) {
+    return (
+      <Shell user={user.email}>
+        {error ? (
+          <div className="mx-auto mt-16 max-w-sm rounded-3xl border border-border bg-surface p-8 text-center">
+            <ShieldAlert className="mx-auto size-10 text-danger" />
+            <h1 className="mt-4 text-[20px] font-semibold text-ink">{error.status === 401 ? "Please sign in again" : "Couldn't load the admin panel"}</h1>
+            <p className="mt-2 text-[14px] text-ink-3">{error.message}</p>
+            <div className="mt-6 flex gap-2">
+              <button type="button" onClick={() => void load()} className="h-11 flex-1 rounded-xl bg-ink text-[14px] font-medium text-bg hover:opacity-90">Try again</button>
+              <button type="button" onClick={() => void signOutUser()} className="h-11 flex-1 rounded-xl border border-border text-[14px] font-medium text-ink-2 hover:bg-surface-2">Sign out</button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-24 flex flex-col items-center gap-3 text-[14px] text-ink-3"><Loader2 className="size-6 animate-spin" /> Checking access…</div>
+        )}
+      </Shell>
+    );
+  }
+
+  const v = "data" in stats.visitors ? stats.visitors.data[win] : null;
+  const u = "data" in stats.users ? stats.users.data : null;
 
   return (
     <Shell user={user.email}>

@@ -1,6 +1,6 @@
 import "server-only";
-import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
-import { getAuth, type UserRecord } from "firebase-admin/auth";
+import type { App } from "firebase-admin/app";
+import type { UserRecord } from "firebase-admin/auth";
 
 /**
  * Admin panel back end. Access is decided here, on the server: the request must
@@ -16,7 +16,13 @@ const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
  * project ID; listing users needs a service account
  * (FIREBASE_SERVICE_ACCOUNT: the key file's JSON, raw or base64).
  */
-function authApp(): App {
+/** Loaded on first use so a failure surfaces as a handled error, not a crashed route. */
+async function adminAuth() {
+  const [app, { getAuth }] = await Promise.all([import("firebase-admin/app"), import("firebase-admin/auth")]);
+  return getAuth(authApp(app));
+}
+
+function authApp({ cert, getApps, initializeApp }: typeof import("firebase-admin/app")): App {
   const existing = getApps().find((a) => a.name === "auth-admin");
   if (existing) return existing;
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -42,7 +48,7 @@ export async function requireAdmin(req: Request): Promise<string> {
   let claims;
   try {
     // Checking revocation looks the user up, which needs the service account.
-    claims = await getAuth(authApp()).verifyIdToken(token, canListUsers());
+    claims = await (await adminAuth()).verifyIdToken(token, canListUsers());
   } catch {
     throw new AdminAuthError(401, "Your session has expired. Sign in again.");
   }
@@ -65,10 +71,11 @@ export interface UserStats {
 }
 
 export async function userStats(): Promise<UserStats> {
+  const auth = await adminAuth();
   const users: UserRecord[] = [];
   let pageToken: string | undefined;
   do {
-    const page = await getAuth(authApp()).listUsers(1000, pageToken);
+    const page = await auth.listUsers(1000, pageToken);
     users.push(...page.users);
     pageToken = page.pageToken;
   } while (pageToken && users.length < 100_000);
