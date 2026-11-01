@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme";
 import { cn, stripExtension } from "@/lib/utils";
 import { downloadNow, printDocument } from "./actions";
+import { AccountButton } from "@/components/auth/account-button";
 
 interface Props {
   onSave: () => void;
@@ -105,6 +106,7 @@ export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs,
         </div>
         <Button variant="outline" size="md" onClick={downloadNow} className="ml-1 hidden md:inline-flex" aria-label="Download"><Download /> Download</Button>
         <Button size="md" onClick={onSave} className="ml-1" data-testid="save">{dirty ? <Save /> : <Check />} <span className="hidden sm:inline">Save changes</span><span className="sm:hidden">Save</span></Button>
+        <div className="ml-1"><AccountButton compact /></div>
       </div>
     </header>
   );

@@ -33,6 +33,7 @@ import { ToolHint } from "./tool-hint";
 import { armAsset, buildPdf, printDocument, readImage } from "./actions";
 import { getEditedPage, textRemovals } from "@/lib/pdf/page-preview";
 import { EditorTour, tourSeen } from "./editor-tour";
+import { requireAuth } from "@/lib/auth/store";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
@@ -64,7 +65,7 @@ export function EditorApp() {
   const applyQuery = useCallback(() => {
     const t = params.get("tool") as ToolId | null;
     if (t && TOOL_DEFS[t]) {
-      if (t === "signature") setSigOpen(true);
+      if (t === "signature") { if (requireAuth("signature", () => setSigOpen(true))) setSigOpen(true); }
       else if (t === "image") setTimeout(() => imageInput.current?.click(), 300);
       else useEditor.getState().setTool(t);
     }
@@ -127,7 +128,7 @@ export function EditorApp() {
     if (t === "image") { imageInput.current?.click(); return; }
     if (t === "signature") {
       if (s.signatures.length) { s.setTool("signature"); return; }
-      setSigOpen(true);
+      if (requireAuth("signature", () => setSigOpen(true))) setSigOpen(true);
       return;
     }
     s.setTool(t);

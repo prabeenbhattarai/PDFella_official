@@ -9,6 +9,7 @@ import { useEditor, findObject } from "@/lib/editor/store";
 import type { EditorObject, TextEditObject, TextStyle } from "@/lib/editor/model";
 import { fontDisplayName, styleDiff } from "@/lib/editor/detect-style";
 import { FontPicker } from "./font-picker";
+import { requireAuth } from "@/lib/auth/store";
 import { applyOriginalStyle, checkStyle } from "./style-choice";
 import { StampMaker, WhiteoutModePicker } from "./stamp-maker";
 import { textRunsIn } from "@/lib/editor/whiteout";
@@ -31,8 +32,15 @@ function Section({ title, children, icon: Icon }: { title: string; children: Rea
   );
 }
 
+const FONT_STYLE_KEYS = ["font", "fontFallback", "bold", "italic", "underline"] as const;
+
 function TextControls({ value, onChange, onCommit }: { value: TextStyle; onChange: (p: Partial<TextStyle>) => void; onCommit: () => void }) {
-  const ch = (p: Partial<TextStyle>) => { onCommit(); onChange(p); };
+  const ch = (p: Partial<TextStyle>) => {
+    // Font family and bold/italic/underline need an account; size, colour and alignment don't.
+    if (FONT_STYLE_KEYS.some((k) => k in p) && !requireAuth("fonts", () => { onCommit(); onChange(p); })) return;
+    onCommit();
+    onChange(p);
+  };
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-[1fr_76px] gap-2">

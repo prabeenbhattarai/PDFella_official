@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/ui/theme";
 import { ToolIcon } from "@/components/ui/tool-icon";
 import { categories, getTool, tools, toolsIn, editorHref, type Tool, type ToolCategory } from "@/lib/tools";
 import { cn } from "@/lib/utils";
+import { AccountButton } from "@/components/auth/account-button";
 
 const order: ToolCategory[] = ["edit", "organise", "convert", "optimise", "security", "forms"];
 const pick = (slugs: string[]) => slugs.map(getTool).filter(Boolean) as Tool[];
@@ -164,6 +165,7 @@ export function Header() {
 
           <div className={cn("ml-auto flex shrink-0 items-center justify-end gap-2 lg:ml-0", !scrolled && "lg:flex-1")}>
             <ThemeToggle />
+            <AccountButton compact={scrolled} />
             <Link href="/editor" className={cn("hidden items-center gap-2 rounded-xl bg-ink font-semibold text-bg transition-all duration-300 hover:opacity-90 sm:inline-flex", scrolled ? "h-10 px-4 text-[13.5px]" : "h-10 px-4 text-[14px]")}>
               Open editor <ArrowRight className="size-4" />
             </Link>

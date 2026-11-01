@@ -5,15 +5,19 @@ const isDev = process.env.NODE_ENV !== "production";
 // Strict CSP. 'unsafe-inline' for styles is required by Next's runtime style tags;
 // 'wasm-unsafe-eval' lets pdf.js use its WASM decoders. blob: is needed for
 // pdf.js rendering, downloads and local previews of user files.
+// Google sign-in: One Tap (accounts.google.com) and Firebase Auth's popup flow
+// (apis.google.com, the project's authDomain, identity/token endpoints).
+const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? `https://${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}` : "";
+
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""} https://accounts.google.com https://apis.google.com`,
+  "style-src 'self' 'unsafe-inline' https://accounts.google.com",
+  "img-src 'self' data: blob: https://lh3.googleusercontent.com",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
-  `connect-src 'self' blob: data: ${process.env.NEXT_PUBLIC_PROCESSING_URL ?? ""} https://storage.googleapis.com https://firebasestorage.googleapis.com`,
-  "frame-src 'self' blob:",
+  `connect-src 'self' blob: data: ${process.env.NEXT_PUBLIC_PROCESSING_URL ?? ""} https://storage.googleapis.com https://firebasestorage.googleapis.com https://accounts.google.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com`,
+  `frame-src 'self' blob: https://accounts.google.com ${authDomain}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",

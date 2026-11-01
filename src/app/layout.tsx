@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toast";
 import { PasswordPrompt } from "@/components/ui/password-prompt";
 import { themeInitScript } from "@/components/ui/theme";
 import { PostHogAnalytics } from "@/components/analytics/posthog";
+import { AuthProvider } from "@/components/auth/auth-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 // Handwriting fonts for typed signatures. @font-face files are only downloaded when actually used.
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Toaster />
         <PasswordPrompt />
         <PostHogAnalytics />
+        <AuthProvider />
       </body>
     </html>
   );

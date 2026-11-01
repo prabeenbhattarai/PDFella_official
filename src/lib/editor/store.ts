@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { uid } from "../utils";
 import type { EditorObject, PageRef, Snapshot, SourceDoc, TextStyle } from "./model";
 import { defaultTextStyle, displaySize } from "./model";
+import { requireAuth } from "../auth/store";
 
 export type ToolId =
   | "select" | "hand" | "text" | "editText" | "whiteout" | "highlight" | "underline" | "strike"
@@ -357,6 +358,7 @@ export const useEditor = create<EditorState>()((set, get) => ({
     });
   },
   insertBlank: (at, size) => {
+    if (!requireAuth("pages", () => get().insertBlank(at, size))) return;
     const ref = get().pages[Math.max(0, at - 1)];
     const { w, h } = ref ? displaySize(ref) : { w: 595.28, h: 841.89 };
     const page: PageRef = { id: uid("p"), sourceId: null, sourceIndex: 0, rotation: 0, baseRotation: 0, width: size?.width ?? w, height: size?.height ?? h };
@@ -379,7 +381,11 @@ export const useEditor = create<EditorState>()((set, get) => ({
     set({ pages: next });
   },
 
-  setTool: (tool) => set({ tool, selection: tool === "select" ? get().selection : [], editingId: null }),
+  setTool: (tool) => {
+    // Signatures and stamps need an account; the tool is picked once the visitor signs in.
+    if ((tool === "signature" || tool === "stamp") && !requireAuth(tool, () => get().setTool(tool))) return;
+    set({ tool, selection: tool === "select" ? get().selection : [], editingId: null });
+  },
   setStyle: (patch) => set((s) => ({ style: { ...s.style, ...patch } })),
   setTextStyle: (patch) => set((s) => ({ style: { ...s.style, text: { ...s.style.text, ...patch } } })),
   select: (selection) => set({ selection }),

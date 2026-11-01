@@ -33,7 +33,16 @@ export default function PrivacyPage() {
         <li>We do not use your documents to train AI models.</li>
         <li>We do not read, analyse, index or sell document contents.</li>
         <li>We do not log document text, file names, signatures or form values.</li>
-        <li>We do not require an account to use any tool.</li>
+        <li>We do not require an account to use any tool. A free account only unlocks a few editor features.</li>
+      </ul>
+
+      <h2 id="accounts">Accounts</h2>
+      <p>You can use {brand.name} without an account. Signing in with Google is optional and unlocks signatures, stamps, adding pages and font styles in the editor.</p>
+      <ul>
+        <li>Sign-in is handled by Google and Firebase Authentication. We receive your name, email address, profile photo and a Google account ID, and use them only to sign you in.</li>
+        <li>When you visit while signed in to Google, Google may offer a one-tap sign-in. Nothing is shared with us unless you choose an account.</li>
+        <li>Your documents are not linked to your account and are never uploaded to it.</li>
+        <li>To delete your account, email us and we&apos;ll remove it.</li>
       </ul>
 
       <h2>Signatures</h2>

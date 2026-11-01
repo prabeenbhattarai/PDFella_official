@@ -13,6 +13,7 @@ import { downloadBlob, sanitizeFileName, cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { insertBlankAt, scrollToPage } from "./canvas";
+import { requireAuth } from "@/lib/auth/store";
 
 const Thumb = memo(function Thumb({ page, width }: { page: PageRef; width: number }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -126,7 +127,7 @@ export function Thumbnails() {
         <p className="text-xs font-semibold text-ink-2">Pages <span className="font-normal text-ink-3">· {pages.length}</span></p>
         <div className="flex">
           <Button variant="ghost" size="icon-sm" title="Insert blank page after the current page" aria-label="Insert blank page" onClick={() => insertBlankAt(current + 1)}><FilePlus2 /></Button>
-          <Button variant="ghost" size="icon-sm" title="Insert PDF or image pages" aria-label="Insert PDF or image pages" onClick={() => fileInput.current?.click()}><FileInput /></Button>
+          <Button variant="ghost" size="icon-sm" title="Insert PDF or image pages" aria-label="Insert PDF or image pages" onClick={() => { if (requireAuth("pages")) fileInput.current?.click(); }}><FileInput /></Button>
         </div>
         <input ref={fileInput} type="file" multiple accept=".pdf,image/png,image/jpeg,image/webp" className="sr-only" onChange={(e) => { insert(e.target.files); e.target.value = ""; }} aria-label="Insert files" />
       </div>
@@ -175,7 +176,7 @@ export function Thumbnails() {
             </div>
           );
         })}
-        <button onClick={() => fileInput.current?.click()} className="mt-2 flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border-strong py-4 text-xs text-ink-3 hover:border-accent hover:text-accent">
+        <button onClick={() => { if (requireAuth("pages")) fileInput.current?.click(); }} className="mt-2 flex w-full flex-col items-center gap-1 rounded-lg border border-dashed border-border-strong py-4 text-xs text-ink-3 hover:border-accent hover:text-accent">
           <ImagePlus className="size-4" /> Add pages
         </button>
       </div>
