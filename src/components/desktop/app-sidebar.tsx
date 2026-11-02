@@ -11,6 +11,7 @@ import { AccountButton } from "@/components/auth/account-button";
 import { categories, getTool, tools, toolsIn, type ToolCategory } from "@/lib/tools";
 import { rememberTool } from "@/lib/desktop-app";
 import { cn } from "@/lib/utils";
+import { useInApp } from "./use-in-app";
 
 const ORDER: ToolCategory[] = ["edit", "organise", "convert", "optimise", "security", "forms"];
 
@@ -44,6 +45,7 @@ export function AppSidebar() {
     return q ? tools.filter((t) => `${t.name} ${t.blurb}`.toLowerCase().includes(q)).slice(0, 12) : null;
   }, [query]);
 
+  const inApp = useInApp();
   const toggle = (c: ToolCategory) => setOpen((o) => { const n = new Set(o); if (n.has(c)) n.delete(c); else n.add(c); return n; });
 
   const toolLink = (slug: string) => {
@@ -53,6 +55,9 @@ export function AppSidebar() {
         icon={<ToolIcon name={t.icon} className="size-4 shrink-0" />} />
     );
   };
+
+  // An empty rail until hydration in the app (and for good on the website), so the layout doesn't jump.
+  if (!inApp) return <div className="app-only fixed inset-y-0 left-0 z-40 w-60 border-r border-border bg-surface" aria-hidden />;
 
   return (
     <aside className="app-only fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-surface" aria-label="App navigation">

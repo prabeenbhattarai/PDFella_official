@@ -6,6 +6,7 @@ import { HeroUpload } from "@/components/marketing/hero-upload";
 import { ToolIcon } from "@/components/ui/tool-icon";
 import { useAuth } from "@/lib/auth/store";
 import { recentTools } from "@/lib/desktop-app";
+import { useInApp } from "./use-in-app";
 import { categories, getTool, toolsIn, type Tool, type ToolCategory } from "@/lib/tools";
 
 const QUICK = ["edit-pdf", "merge-pdf", "compress-pdf", "pdf-to-word", "sign-pdf", "jpg-to-pdf"];
@@ -40,21 +41,16 @@ export function AppHome() {
   const name = useAuth((s) => s.user?.name?.split(" ")[0]);
   const [hello, setHello] = useState("Welcome");
   const [recent, setRecent] = useState<Tool[]>([]);
-  // The upload box is only built inside the app: on the website the landing page has its own,
-  // and a second (hidden) one would sit in the page twice.
-  const [inApp, setInApp] = useState(false);
-  useEffect(() => {
-    setHello(greeting());
-    setRecent(pick(recentTools()));
-    setInApp(document.documentElement.dataset.app === "desktop");
-  }, []);
+  const inApp = useInApp();
+  useEffect(() => { setHello(greeting()); setRecent(pick(recentTools())); }, []);
+  if (!inApp) return null;
 
   return (
     <div className="app-only mx-auto max-w-5xl px-8 py-10">
       <h1 className="text-[26px] font-semibold tracking-tight">{hello}{name ? `, ${name}` : ""}</h1>
       <p className="mt-1 text-[15px] text-ink-3">Open a document to edit it, or pick a tool.</p>
 
-      <div className="mt-6">{inApp ? <HeroUpload size="default" /> : <div className="h-[268px] rounded-2xl border-2 border-dashed border-border-strong" aria-hidden />}</div>
+      <div className="mt-6"><HeroUpload size="default" /></div>
 
       <section className="mt-9">
         <Heading>{recent.length ? "Recently used" : "Popular tools"}</Heading>
