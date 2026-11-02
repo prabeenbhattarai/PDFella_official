@@ -8,7 +8,7 @@ test("landing page explains the product and has an upload area", async ({ page }
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("PDF editor");
   await expect(page.getByTestId("dropzone")).toBeVisible();
-  await expect(page.getByText("No account required")).toBeVisible();
+  await expect(page.getByText("Most tools need no account").first()).toBeVisible();
 });
 
 test("uploading a PDF on the landing page opens it in the editor", async ({ page }) => {
