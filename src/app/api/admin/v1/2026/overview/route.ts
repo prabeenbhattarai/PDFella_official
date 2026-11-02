@@ -1,5 +1,5 @@
 import { json, fail } from "@/lib/server/http";
-import { AdminAuthError, canListUsers, canQueryVisitors, desktopUsage, downloadStats, requireAdmin, userStats, visitorStats } from "@/lib/server/admin";
+import { AdminAuthError, canListUsers, canQueryVisitors, desktopPeople, desktopUsage, downloadStats, requireAdmin, userStats, visitorStats } from "@/lib/server/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   // Each source fails on its own, so a missing PostHog key doesn't hide the user numbers.
-  const [users, visitors, downloads, desktop] = await Promise.all([
+  const [users, visitors, downloads, desktop, people] = await Promise.all([
     canListUsers()
       ? userStats().then((data) => ({ data }), (e) => ({ error: `Couldn't read users: ${(e as Error).message}` }))
       : { error: "Add FIREBASE_SERVICE_ACCOUNT to read registered users." },
@@ -27,6 +27,7 @@ export async function GET(req: Request) {
     canQueryVisitors()
       ? desktopUsage().then((data) => ({ data }), (e) => ({ error: `Couldn't read desktop users: ${(e as Error).message}` }))
       : { error: "Add POSTHOG_PERSONAL_API_KEY and POSTHOG_PROJECT_ID to count desktop app users." },
+    desktopPeople().then((data) => ({ data }), (e) => ({ error: `Couldn't list desktop app users: ${(e as Error).message}` })),
   ]);
-  return json({ admin, generatedAt: new Date().toISOString(), users, visitors, downloads, desktop }, 200, { "X-Robots-Tag": "noindex" });
+  return json({ admin, generatedAt: new Date().toISOString(), users, visitors, downloads, desktop, people }, 200, { "X-Robots-Tag": "noindex" });
 }

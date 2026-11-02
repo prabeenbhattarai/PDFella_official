@@ -67,7 +67,7 @@ async function googleAccessToken(): Promise<string> {
   return accessToken.value;
 }
 
-interface RestUser { localId: string; email?: string; displayName?: string; photoUrl?: string; createdAt?: string; lastLoginAt?: string; lastRefreshAt?: string }
+interface RestUser { localId: string; email?: string; displayName?: string; photoUrl?: string; createdAt?: string; lastLoginAt?: string; lastRefreshAt?: string; customAttributes?: string }
 
 async function listUsers(): Promise<RestUser[]> {
   const token = await googleAccessToken();
@@ -228,4 +228,105 @@ export async function downloadStats(): Promise<DownloadStats> {
   const mac = releases.reduce((n, r) => n + r.mac, 0);
   const windows = releases.reduce((n, r) => n + r.windows, 0);
   return { total: mac + windows, mac, windows, releases };
+}
+
+// ───────── who uses the desktop app
+
+/** Kept on the Firebase account as the custom attribute `desktop` (see markDesktopUse). */
+interface DesktopMark { first: string; last: string; os: string | null; v: string | null; opens: number }
+
+const attributes = (u: RestUser): Record<string, unknown> => {
+  try { return u.customAttributes ? JSON.parse(u.customAttributes) : {}; } catch { return {}; }
+};
+
+/** "mac" / "windows" and the app version from the desktop app's user agent. */
+export function desktopAgent(ua: string): { os: string | null; version: string | null } | null {
+  const v = ua.match(/PDFellaDesktop\/([\w.]+)/);
+  if (!v) return null;
+  return { os: /Windows/.test(ua) ? "windows" : /Macintosh|Mac OS/.test(ua) ? "mac" : null, version: v[1] };
+}
+
+/**
+ * Records that a signed-in account opened the desktop app, on the account itself
+ * (no separate database). Written at most every 30 minutes per account.
+ */
+export async function markDesktopUse(uid: string, agent: { os: string | null; version: string | null }) {
+  const token = await googleAccessToken();
+  const api = `https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}`;
+  const res = await fetch(`${api}/accounts:lookup`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: [uid] }), cache: "no-store",
+  });
+  const user = ((await res.json().catch(() => ({}))).users ?? [])[0] as RestUser | undefined;
+  if (!res.ok || !user) throw new Error(`Couldn't read the account (${res.status})`);
+  const attrs = attributes(user);
+  const prev = attrs.desktop as DesktopMark | undefined;
+  const now = new Date().toISOString();
+  if (prev && Date.now() - Date.parse(prev.last) < 30 * 60_000 && prev.v === agent.version) return;
+  const desktop: DesktopMark = { first: prev?.first ?? now, last: now, os: agent.os, v: agent.version, opens: (prev?.opens ?? 0) + 1 };
+  const update = await fetch(`${api}/accounts:update`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: uid, customAttributes: JSON.stringify({ ...attrs, desktop }) }), cache: "no-store",
+  });
+  if (!update.ok) throw new Error(`Couldn't update the account (${update.status})`);
+}
+
+export interface DesktopPerson {
+  /** Signed in (email known), or used the app without signing in. */
+  known: boolean;
+  email: string | null;
+  name: string | null;
+  photo: string | null;
+  os: string | null;
+  version: string | null;
+  firstSeen: string | null;
+  lastSeen: string;
+  /** App opens for signed-in people, page views for unknown ones. */
+  count: number;
+}
+
+export interface DesktopPeople { people: DesktopPerson[]; notes: string[] }
+
+/**
+ * Everyone who used the desktop app in the last 30 days: signed-in accounts from
+ * their `desktop` attribute, plus anonymous app visitors from PostHog as "unknown"
+ * (one row per anonymous ID, which changes daily in cookieless mode).
+ */
+export async function desktopPeople(): Promise<DesktopPeople> {
+  const since = Date.now() - 30 * DAY;
+  const [known, unknown] = await Promise.allSettled([
+    canListUsers() ? listUsers() : Promise.reject(new Error("Add FIREBASE_SERVICE_ACCOUNT to see signed-in app users.")),
+    canQueryVisitors()
+      ? hogql<[string, string, string, number, string | null, string | null]>(
+        `SELECT distinct_id, min(timestamp) AS first, max(timestamp) AS last, count() AS views,
+                any(properties.$os) AS os, any(properties.$raw_user_agent) AS ua
+         FROM events
+         WHERE event = '$pageview' AND timestamp > now() - INTERVAL 30 DAY
+           AND (properties.app = 'desktop' OR properties.$raw_user_agent LIKE '%PDFellaDesktop%')
+         GROUP BY distinct_id
+         HAVING countIf(properties.signed_in = true) = 0
+         ORDER BY last DESC LIMIT 200`)
+      : Promise.reject(new Error("Add POSTHOG_PERSONAL_API_KEY and POSTHOG_PROJECT_ID to see app users who aren't signed in.")),
+  ]);
+  const people: DesktopPerson[] = [];
+  const notes: string[] = [];
+  if (known.status === "fulfilled") {
+    for (const u of known.value) {
+      const d = attributes(u).desktop as DesktopMark | undefined;
+      if (!d || Date.parse(d.last) < since) continue;
+      people.push({ known: true, email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null, os: d.os, version: d.v, firstSeen: d.first, lastSeen: d.last, count: d.opens });
+    }
+  } else notes.push((known.reason as Error).message);
+  if (unknown.status === "fulfilled") {
+    for (const [, first, last, views, os, ua] of unknown.value) {
+      const agent = ua ? desktopAgent(ua) : null;
+      people.push({
+        known: false, email: null, name: null, photo: null,
+        os: agent?.os ?? (os === "Windows" ? "windows" : os?.toLowerCase().includes("mac") ? "mac" : null),
+        version: agent?.version ?? null, firstSeen: new Date(first).toISOString(), lastSeen: new Date(last).toISOString(), count: views,
+      });
+    }
+  } else notes.push((unknown.reason as Error).message);
+  people.sort((a, b) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen));
+  return { people, notes };
 }

@@ -8,13 +8,13 @@ import { brand } from "@/lib/brand";
 import { LogoMark } from "@/components/ui/logo";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
-import type { DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
+import type { DesktopPeople, DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
 
 /** The only account that may sign in here. The server checks this too (ADMIN_EMAILS). */
 const OWNER = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "prabeenbhattarai7450@gmail.com").toLowerCase();
 
 type Part<T> = { data: T } | { error: string };
-interface Stats { admin: string; generatedAt: string; users: Part<UserStats>; visitors: Part<VisitorStats>; downloads: Part<DownloadStats>; desktop: Part<DesktopUsage> }
+interface Stats { admin: string; generatedAt: string; users: Part<UserStats>; visitors: Part<VisitorStats>; downloads: Part<DownloadStats>; desktop: Part<DesktopUsage>; people: Part<DesktopPeople> }
 type Win = "d1" | "d7" | "d30";
 const WINDOWS: { id: Win; label: string }[] = [{ id: "d1", label: "24 hours" }, { id: "d7", label: "7 days" }, { id: "d30", label: "30 days" }];
 
@@ -27,6 +27,51 @@ function Card({ icon: Icon, label, value, hint, tone = "default" }: { icon: Reac
       <div className="flex items-center gap-2 text-[13px] font-medium text-ink-3"><Icon className={cn("size-4", tone === "accent" && "text-accent")} aria-hidden /> {label}</div>
       <p className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-ink tabular-nums">{value}</p>
       {hint && <p className="mt-2 text-[12.5px] text-ink-3">{hint}</p>}
+    </div>
+  );
+}
+
+const OS_LABEL: Record<string, string> = { mac: "macOS", windows: "Windows" };
+
+function DesktopPeopleTable({ data }: { data: DesktopPeople }) {
+  const known = data.people.filter((p) => p.known).length;
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-3">
+        <p className="text-[13px] font-medium text-ink-3">Who used the app · last 30 days</p>
+        <p className="text-[12.5px] text-ink-3">{known} signed in · {data.people.length - known} unknown</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[14px]">
+          <thead className="text-[12px] text-ink-3"><tr><th className="px-5 py-2 font-medium">User</th><th className="px-5 py-2 font-medium">System</th><th className="px-5 py-2 font-medium">Last used</th><th className="px-5 py-2 font-medium">First used</th><th className="px-5 py-2 text-right font-medium">Activity</th></tr></thead>
+          <tbody>
+            {data.people.length === 0 && <tr><td colSpan={5} className="px-5 py-6 text-center text-ink-3">No one has used the desktop app in the last 30 days.</td></tr>}
+            {data.people.map((p, i) => (
+              <tr key={`${p.email ?? "unknown"}-${p.lastSeen}-${i}`} className="border-t border-border">
+                <td className="px-5 py-3">
+                  {p.known ? (
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- remote Google avatar */}
+                      {p.photo ? <img src={p.photo} alt="" referrerPolicy="no-referrer" className="size-8 rounded-full" /> : <span className="flex size-8 items-center justify-center rounded-full bg-surface-2 text-[13px] font-semibold">{(p.name ?? p.email ?? "?").charAt(0).toUpperCase()}</span>}
+                      <div className="min-w-0"><p className="truncate font-medium text-ink">{p.name ?? "—"}</p><p className="truncate text-[12.5px] text-ink-3">{p.email}</p></div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <span className="flex size-8 items-center justify-center rounded-full border border-dashed border-border-strong text-[13px] font-semibold text-ink-3">?</span>
+                      <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[12px] font-semibold text-ink-3">Unknown</span>
+                    </div>
+                  )}
+                </td>
+                <td className="px-5 py-3 whitespace-nowrap text-ink-2">{p.os ? OS_LABEL[p.os] ?? p.os : "—"}{p.version ? <span className="text-ink-3"> · v{p.version}</span> : null}</td>
+                <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(p.lastSeen)}</td>
+                <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(p.firstSeen)}</td>
+                <td className="px-5 py-3 text-right whitespace-nowrap text-ink-2 tabular-nums">{fmt(p.count)} {p.known ? (p.count === 1 ? "open" : "opens") : (p.count === 1 ? "page" : "pages")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data.notes.map((n) => <p key={n} className="border-t border-border px-5 py-2.5 text-[12.5px] text-ink-3">{n}</p>)}
     </div>
   );
 }
@@ -223,6 +268,8 @@ export function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {"error" in stats.people ? <div className="mt-3"><Missing text={stats.people.error} /></div> : <DesktopPeopleTable data={stats.people.data} />}
 
       <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Registered users</h2>
       {stats && "error" in stats.users ? <div className="mt-3"><Missing text={stats.users.error} /></div> : (
