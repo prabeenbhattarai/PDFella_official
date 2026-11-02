@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, Check, GraduationCap, Briefcase, Scale, Home, Users, Calculator, PenTool,
-  Landmark, ShieldCheck, X as XIcon, Zap, UserX,
+  Landmark, ShieldCheck, Zap, UserX,
 } from "lucide-react";
 import { HeroUpload } from "@/components/marketing/hero-upload";
 import { ToolGrid } from "@/components/marketing/tool-grid";
@@ -13,12 +13,12 @@ import { MarqueeClone } from "@/components/marketing/marquee-clone";
 import { AppHome } from "@/components/desktop/app-home";
 import { brand } from "@/lib/brand";
 import { jsonLdScript, siteJsonLd } from "@/lib/seo";
-import { JOB_TTL_MINUTES } from "@/lib/limits";
+import { JOB_TTL_MINUTES, limitsFor } from "@/lib/limits";
 
 const faq = [
   { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
   { q: `Is ${brand.name} free to use?`, a: "Yes. Every tool is free with generous limits, and most work without an account. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in. Heavier cloud processing (OCR, Office conversion) has a daily allowance." },
-  { q: "Do I need to create an account?", a: "No. Drop a file and start working. Accounts will be optional and only add conveniences like saved signatures and document history." },
+  { q: "Do I need to create an account?", a: "Not for most tools. Drop a file and start working. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in." },
   { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` },
   { q: "Can I really edit the existing text in a PDF?", a: "Yes. Double-click any word or sentence and type. The original text is removed from the PDF and replaced at the same position, size and style." },
   { q: "My PDF has a password. Can I still edit it?", a: "Yes. PDFs that only restrict printing, copying or editing open automatically. If a PDF needs a password to open, enter it once and the document becomes fully editable." },
@@ -37,15 +37,18 @@ const useCases = [
   { icon: Landmark, t: "Public sector", d: "Searchable archives with OCR, standard forms, secure sharing.", c: "var(--cat-convert)" },
 ];
 
-const comparison: [string, boolean | string, boolean | string][] = [
-  ["Works instantly in the browser", true, false],
-  ["Most tools without an account or licence key", true, false],
-  ["Edit existing text, sign, annotate", true, true],
-  ["Convert to and from Office", true, true],
-  ["OCR for scanned documents", true, "Paid tier"],
-  ["Files stay on your device for editing", true, true],
-  ["Works on phone and tablet", true, "Limited"],
-  ["Installation and updates", "None", "Required"],
+// What PDFella actually does today, with the catch for each row. Keep this in step with lib/tools.ts and lib/limits.ts.
+const free = limitsFor("free");
+const facts: [string, string, true | string][] = [
+  ["Edit existing text, sign and annotate", "Signatures, stamps, extra pages and font styles need a free Google sign-in", true],
+  ["Merge, split, compress and organise pages", "Runs in your browser", true],
+  ["Convert to and from Word, Excel and PowerPoint", "PDF to Word runs in your browser; the other conversions use secure cloud", true],
+  ["OCR for scanned PDFs", `Secure cloud, up to ${free.serverTasksPerDay} cloud tasks a day`, true],
+  ["Your files stay on your device", `Cloud tools delete files within ${JOB_TTL_MINUTES} minutes`, "Most tools"],
+  ["Account", "Most tools work without one", "Optional"],
+  ["Phone and tablet", "Works in any modern browser", true],
+  ["Install", "Use it in the browser, or get the app for Mac and Windows", "Optional"],
+  ["Price", `No watermark, files up to ${free.maxFileBytes / 1024 / 1024} MB`, "Free"],
 ];
 
 const tickerItem = "flex items-center gap-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:text-accent";
@@ -305,21 +308,24 @@ export default function LandingPage() {
       <section className="border-t border-border bg-surface-2/60 py-24">
         <div className="wrap grid gap-16 lg:grid-cols-2">
           <div>
-            <Heading center={false} eyebrow="Compared" title="A lighter alternative to desktop PDF software" intro="Everything most people need, without the installer, the licence key or the learning curve." />
+            <Heading center={false} eyebrow="At a glance" title={`What ${brand.name} does today`} intro="Every tool here is live and free. Here's where each one runs and what needs an account." />
             <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
               <table className="w-full text-sm">
                 <thead className="bg-surface-2 text-left">
-                  <tr><th className="px-5 py-3.5 font-medium text-ink-3">Capability</th><th className="px-5 py-3.5 font-semibold text-accent">{brand.name}</th><th className="px-5 py-3.5 font-medium text-ink-3">Desktop software</th></tr>
+                  <tr><th className="px-5 py-3.5 font-medium text-ink-3">Feature</th><th className="px-5 py-3.5 text-right font-semibold text-accent">{brand.name}</th></tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {comparison.map(([c, a, b]) => (
-                    <tr key={c}>
-                      <td className="px-5 py-3.5 text-ink-2">{c}</td>
-                      {[a, b].map((v, i) => (
-                        <td key={i} className="px-5 py-3.5">
-                          {v === true ? <span className="flex size-6 items-center justify-center rounded-full bg-accent-soft"><Check className="size-3.5 text-accent" aria-label="Yes" /></span> : v === false ? <XIcon className="size-4 text-ink-3" aria-label="No" /> : <span className="text-ink-2">{v}</span>}
-                        </td>
-                      ))}
+                  {facts.map(([feature, detail, v]) => (
+                    <tr key={feature}>
+                      <td className="px-5 py-3.5">
+                        <span className="block font-medium text-ink">{feature}</span>
+                        <span className="mt-0.5 block text-[13px] text-ink-3">{detail}</span>
+                      </td>
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                        {v === true
+                          ? <span className="ml-auto flex size-6 items-center justify-center rounded-full bg-accent-soft"><Check className="size-3.5 text-accent" aria-label="Yes" /></span>
+                          : <span className="font-semibold text-ink-2">{v}</span>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
