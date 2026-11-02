@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, Monitor, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { currentIdToken } from "@/lib/auth/firebase";
 import type { UserPage } from "@/lib/server/admin";
+import { UserDrawer } from "./user-drawer";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 const SIZES = [20, 50, 100];
@@ -20,6 +21,8 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
   const [data, setData] = useState<UserPage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
+  const close = useCallback(() => setOpen(null), []);
 
   // Search as you type, without a request per keystroke.
   useEffect(() => {
@@ -57,7 +60,7 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
     <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <p className="flex items-center gap-2 text-[13px] font-medium text-ink-3">
-          All sign-ups {data && <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[12px] tabular-nums">{data.total.toLocaleString()}</span>}
+          All sign-ups <span className="hidden text-[12px] font-normal sm:inline">· click someone for details</span> {data && <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[12px] tabular-nums">{data.total.toLocaleString()}</span>}
           {loading && <Loader2 className="size-3.5 animate-spin" aria-label="Loading" />}
         </p>
         <label className="flex h-9 w-full items-center gap-2 rounded-lg border border-border bg-bg px-2.5 text-ink-3 focus-within:border-accent sm:w-72">
@@ -77,7 +80,9 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
           <tbody className={cn(loading && "opacity-60")}>
             {data && data.rows.length === 0 && <tr><td colSpan={6} className="px-5 py-8 text-center text-ink-3">{q ? `No one matches “${q}”.` : "No one has signed up yet."}</td></tr>}
             {data?.rows.map((r, i) => (
-              <tr key={`${r.email}-${r.createdAt}`} className="border-t border-border">
+              <tr key={r.uid} tabIndex={0} onClick={() => setOpen(r.uid)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(r.uid); } }}
+                aria-label={`Open details for ${r.email ?? r.name ?? "this account"}`}
+                className="cursor-pointer border-t border-border transition-colors outline-none hover:bg-surface-2/60 focus-visible:bg-surface-2">
                 <td className="px-5 py-3 text-ink-3 tabular-nums">{from + i}</td>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-3">
@@ -102,6 +107,8 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
           </tbody>
         </table>
       </div>
+
+      {open && <UserDrawer uid={open} onClose={close} />}
 
       {data && data.total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-3 text-[13px] text-ink-3">

@@ -49,10 +49,15 @@ export function PostHogAnalytics() {
       window.__pdfellaAnalytics = (event, props) => posthog.capture(event, props);
       // Lets the admin panel count desktop app users apart from the website.
       posthog.register({ app: isDesktopApp() ? "desktop" : "web" });
-      // Lets the admin panel split visitors into signed-in and not registered.
-      const tag = (signedIn: boolean) => posthog.register({ signed_in: signedIn });
-      tag(!!useAuth.getState().user);
-      unsubscribe = useAuth.subscribe((s, prev) => { if (!!s.user !== !!prev.user) tag(!!s.user); });
+      // Lets the admin panel split visitors into signed-in and not registered, and show a
+      // signed-in account's own activity. `uid` is the random Firebase ID, never the email.
+      const tag = (uid: string | undefined) => {
+        posthog.register({ signed_in: !!uid });
+        if (uid) posthog.register({ uid });
+        else posthog.unregister("uid");
+      };
+      tag(useAuth.getState().user?.uid);
+      unsubscribe = useAuth.subscribe((s, prev) => { if (s.user?.uid !== prev.user?.uid) tag(s.user?.uid); });
     });
     return () => {
       cancelled = true;

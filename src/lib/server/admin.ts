@@ -67,7 +67,10 @@ async function googleAccessToken(): Promise<string> {
   return accessToken.value;
 }
 
-interface RestUser { localId: string; email?: string; displayName?: string; photoUrl?: string; createdAt?: string; lastLoginAt?: string; lastRefreshAt?: string; customAttributes?: string }
+interface RestUser {
+  localId: string; email?: string; emailVerified?: boolean; displayName?: string; photoUrl?: string; disabled?: boolean;
+  createdAt?: string; lastLoginAt?: string; lastRefreshAt?: string; customAttributes?: string; providerUserInfo?: { providerId: string }[];
+}
 
 async function listUsers(): Promise<RestUser[]> {
   const token = await googleAccessToken();
@@ -118,7 +121,7 @@ export async function userStats(): Promise<UserStats> {
   };
 }
 
-export interface UserRow { email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null; country: string | null }
+export interface UserRow { uid: string; email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null; country: string | null }
 export interface UserPage { total: number; page: number; pages: number; size: number; rows: UserRow[] }
 
 /** One page of every registered account, newest first, optionally filtered by name or email. */
@@ -133,7 +136,7 @@ export async function userPage({ page = 1, size = 20, q = "" }: { page?: number;
   return {
     total: all.length, page: current, pages, size,
     rows: all.slice((current - 1) * size, current * size).map((u) => ({
-      email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null,
+      uid: u.localId, email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null,
       createdAt: new Date(created(u)).toISOString(),
       lastSignInAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)).toISOString() : null,
       desktopLastUsed: (attributes(u).desktop as DesktopMark | undefined)?.last ?? null,
@@ -423,4 +426,75 @@ export async function desktopPeople(): Promise<DesktopPeople> {
   } else notes.push((unknown.reason as Error).message);
   people.sort((a, b) => Date.parse(b.lastSeen) - Date.parse(a.lastSeen));
   return { people, notes };
+}
+
+// ───────── one account in full
+
+export interface UserDetail {
+  uid: string; email: string | null; name: string | null; photo: string | null;
+  emailVerified: boolean; disabled: boolean; providers: string[];
+  createdAt: string | null; lastSignInAt: string | null; lastActiveAt: string | null;
+  /** Country Vercel detected at the last signed-in visit. */
+  country: string | null;
+  desktop: DesktopMark | null;
+  /** From PostHog, for events sent while signed in (tagged with `uid` since this was added). */
+  activity: {
+    firstSeen: string | null; lastSeen: string | null; pageviews: number; activeDays: number;
+    country: string | null; city: string | null; device: string | null; browser: string | null; os: string | null;
+    pages: { path: string; views: number }[];
+    recent: { event: string; path: string | null; at: string }[];
+  } | { error: string } | null;
+}
+
+const EVENT_LABELS: Record<string, string> = { $pageview: "Opened a page", $pageleave: "Left a page", $autocapture: "Clicked" };
+
+/** Everything known about one account: Firebase profile, saved attributes and its PostHog activity. */
+export async function userDetail(uid: string): Promise<UserDetail | null> {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) return null;
+  const token = await googleAccessToken();
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}/accounts:lookup`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: [uid] }), cache: "no-store",
+  });
+  const u = ((await res.json().catch(() => ({}))).users ?? [])[0] as RestUser | undefined;
+  if (!res.ok) throw new Error(`Couldn't read the account (${res.status})`);
+  if (!u) return null;
+  const attrs = attributes(u);
+  const iso = (ms?: string) => (ms ? new Date(Number(ms)).toISOString() : null);
+
+  let activity: UserDetail["activity"] = null;
+  if (canQueryVisitors()) {
+    const by = `properties.uid = '${uid}'`;
+    try {
+      const [[summary], pages, recent] = await Promise.all([
+        hogql<[string | null, string | null, number, number, string | null, string | null, string | null, string | null, string | null]>(
+          `SELECT min(timestamp), max(timestamp), countIf(event = '$pageview'), count(DISTINCT toDate(timestamp)),
+                  argMax(properties.$geoip_country_code, timestamp), argMax(properties.$geoip_city_name, timestamp),
+                  argMax(properties.$device_type, timestamp), argMax(properties.$browser, timestamp), argMax(properties.$os, timestamp)
+           FROM events WHERE ${by}`),
+        hogql<[string, number]>(`SELECT properties.$pathname AS p, count() FROM events WHERE ${by} AND event = '$pageview' GROUP BY p ORDER BY 2 DESC LIMIT 8`),
+        hogql<[string, string | null, string]>(`SELECT event, properties.$pathname, timestamp FROM events WHERE ${by} AND event != '$pageleave' ORDER BY timestamp DESC LIMIT 20`),
+      ]);
+      const [first, last, pageviews, activeDays, country, city, device, browser, os] = summary ?? [];
+      activity = {
+        firstSeen: first ? new Date(first).toISOString() : null, lastSeen: last ? new Date(last).toISOString() : null,
+        pageviews: pageviews ?? 0, activeDays: activeDays ?? 0,
+        country: country ?? null, city: city ?? null, device: device ?? null, browser: browser ?? null, os: os ?? null,
+        pages: pages.filter((r) => r[0]).map(([path, views]) => ({ path, views })),
+        recent: recent.map(([event, path, at]) => ({ event: EVENT_LABELS[event] ?? event.replace(/_/g, " "), path, at: new Date(at).toISOString() })),
+      };
+    } catch (e) {
+      activity = { error: (e as Error).message };
+    }
+  }
+
+  return {
+    uid, email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null,
+    emailVerified: !!u.emailVerified, disabled: !!u.disabled,
+    providers: (u.providerUserInfo ?? []).map((p) => (p.providerId === "google.com" ? "Google" : p.providerId)),
+    createdAt: iso(u.createdAt), lastSignInAt: iso(u.lastLoginAt), lastActiveAt: u.lastRefreshAt ?? null,
+    country: typeof attrs.country === "string" ? attrs.country : null,
+    desktop: (attrs.desktop as DesktopMark | undefined) ?? null,
+    activity,
+  };
 }
