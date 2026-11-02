@@ -200,6 +200,7 @@ export function BreakdownView({ data, error, loading, label }: { data: Breakdown
       </div>
       {error && <p role="alert" className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-[13.5px] text-danger">{error}</p>}
       {data && "error" in data.traffic && metric !== "accounts" && <p className="mt-3 rounded-2xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.traffic.error}</p>}
+      {traffic?.notes.map((n) => <p key={n} className="mt-3 rounded-xl border border-dashed border-border-strong bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">Couldn&apos;t load {n}</p>)}
       {data && "error" in data.accounts && metric === "accounts" && <p className="mt-3 rounded-2xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.accounts.error}</p>}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">

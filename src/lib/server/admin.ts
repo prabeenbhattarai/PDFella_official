@@ -175,16 +175,17 @@ async function hogql<Row extends unknown[]>(query: string): Promise<Row[]> {
 
 /**
  * Unique visitors from PostHog, split by the `signed_in` property the site sets
- * on every event. Events from before sign-in existed count as guests. In
- * cookieless mode a visitor gets a new anonymous ID each day, so multi-day
- * windows count someone who came on 3 days as 3 visitors.
+ * on every event. Events from before sign-in existed count as guests. Counted by
+ * person_id, the same way PostHog's own "Active users" counts. Without cookies a
+ * visitor still gets a new anonymous ID each day, so multi-day windows count
+ * someone who came on 3 days as 3 visitors.
  */
 export async function visitorStats(): Promise<VisitorStats> {
   const window = async (days: number): Promise<VisitorWindow> => {
     // One row, each person counted once: someone who signed in partway through a visit has
     // events on both sides, so summing per-group counts would count them twice.
     const [[visitors, signedIn, pageviews] = [0, 0, 0]] = await hogql<[number, number, number]>(
-      `SELECT count(DISTINCT distinct_id), count(DISTINCT if(properties.signed_in = true, distinct_id, NULL)), count()
+      `SELECT count(DISTINCT person_id), count(DISTINCT if(properties.signed_in = true, person_id, NULL)), count()
        FROM events WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY`,
     );
     return { visitors, signedIn, guests: visitors - signedIn, pageviews };
@@ -205,6 +206,8 @@ export interface Insights {
   systems: Count[];
   /** Visitors per day over the last 30 days, oldest first. */
   daily: { date: string; visitors: number; views: number }[];
+  /** Parts that failed; the rest still show. */
+  notes: string[];
 }
 
 const insightsCache = new Map<number, { at: number; value: Insights }>();
@@ -215,37 +218,40 @@ export async function insights(days: 1 | 7 | 30): Promise<Insights> {
   if (hit && Date.now() - hit.at < 5 * 60_000) return hit.value;
   const where = `event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY`;
   const top = (expr: string, limit = 10, extra = "") => hogql<[string | null, number, number]>(
-    `SELECT ${expr} AS k, count(DISTINCT distinct_id) AS visitors, count() AS views FROM events
+    `SELECT ${expr} AS k, count(DISTINCT person_id) AS visitors, count() AS views FROM events
      WHERE ${where} ${extra} GROUP BY k ORDER BY visitors DESC LIMIT ${limit}`,
   ).then((rows) => rows.filter((r) => r[0]).map(([key, visitors, views]) => ({ key: String(key), visitors, views })));
 
+  // Each part fails on its own, so one bad query doesn't blank the whole section.
+  const notes: string[] = [];
+  const safe = <T,>(name: string, q: Promise<T[]>) => q.catch((e: Error) => { notes.push(`${name}: ${e.message}`); return [] as T[]; });
   const [countries, sources, pages, devices, browsers, systems, daily] = await Promise.all([
-    hogql<[string | null, number, number]>(
-      `SELECT properties.$geoip_country_code AS cc, count(DISTINCT distinct_id) AS visitors,
-              count(DISTINCT if(properties.signed_in = true, distinct_id, NULL)) AS signed
+    safe("Countries", hogql<[string | null, number, number]>(
+      `SELECT properties.$geoip_country_code AS cc, count(DISTINCT person_id) AS visitors,
+              count(DISTINCT if(properties.signed_in = true, person_id, NULL)) AS signed
        FROM events WHERE ${where} GROUP BY cc ORDER BY visitors DESC LIMIT 250`,
-    ).then((rows) => rows.filter((r) => r[0]).map(([code, visitors, signedIn]) => ({ code: String(code).toUpperCase(), visitors, signedIn }))),
+    ).then((rows) => rows.filter((r) => r[0]).map(([code, visitors, signedIn]) => ({ code: String(code).toUpperCase(), visitors, signedIn })))),
     // The site that sent the visit; pdfella.com itself means a full reload, so it's left out.
-    top(`if(properties.$referring_domain IN ('', '$direct') OR properties.$referring_domain IS NULL, 'Direct', if(startsWith(properties.$referring_domain, 'www.'), substring(properties.$referring_domain, 5), properties.$referring_domain))`, 10,
-      `AND (properties.$referring_domain IS NULL OR properties.$referring_domain NOT LIKE '%pdfella.com')`),
-    top("properties.$pathname", 12),
-    top("properties.$device_type", 5),
-    top("properties.$browser", 8),
-    top("properties.$os", 8),
-    hogql<[string, number, number]>(
-      `SELECT toString(toDate(timestamp)) AS d, count(DISTINCT distinct_id), count() FROM events
+    safe("Sources", top(`if(properties.$referring_domain IN ('', '$direct') OR properties.$referring_domain IS NULL, 'Direct', if(startsWith(properties.$referring_domain, 'www.'), substring(properties.$referring_domain, 5, length(properties.$referring_domain)), properties.$referring_domain))`, 10,
+      `AND (properties.$referring_domain IS NULL OR properties.$referring_domain NOT LIKE '%pdfella.com')`)),
+    safe("Pages", top("properties.$pathname", 12)),
+    safe("Devices", top("properties.$device_type", 5)),
+    safe("Browsers", top("properties.$browser", 8)),
+    safe("Systems", top("properties.$os", 8)),
+    safe("Daily visitors", hogql<[string, number, number]>(
+      `SELECT toString(toDate(timestamp)) AS d, count(DISTINCT person_id), count() FROM events
        WHERE event = '$pageview' AND timestamp > now() - INTERVAL 30 DAY GROUP BY d ORDER BY d`,
-    ),
+    )),
   ]);
   const byDate = new Map(daily.map(([d, v, n]) => [d, { visitors: v, views: n }]));
   const value: Insights = {
-    days, countries, sources, pages, devices, browsers, systems,
+    days, countries, sources, pages, devices, browsers, systems, notes,
     daily: Array.from({ length: 30 }, (_, i) => {
       const date = new Date(Date.now() - (29 - i) * DAY).toISOString().slice(0, 10);
       return { date, ...(byDate.get(date) ?? { visitors: 0, views: 0 }) };
     }),
   };
-  insightsCache.set(days, { at: Date.now(), value });
+  if (!notes.length) insightsCache.set(days, { at: Date.now(), value });
   return value;
 }
 
@@ -261,7 +267,7 @@ export async function desktopUsage(): Promise<DesktopUsage> {
   const window = async (days: number): Promise<DesktopWindow> => {
     const rows = await hogql<[string, number, number]>(
       `SELECT multiIf(properties.$os = 'Windows', 'windows', properties.$os ILIKE '%mac%', 'mac', 'other') AS os,
-              count(DISTINCT distinct_id) AS users, count() AS pageviews
+              count(DISTINCT person_id) AS users, count() AS pageviews
        FROM events
        WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY
          AND (properties.app = 'desktop' OR properties.$raw_user_agent LIKE '%PDFellaDesktop%')
@@ -395,12 +401,12 @@ export async function desktopPeople(): Promise<DesktopPeople> {
     canListUsers() ? listUsers() : Promise.reject(new Error("Add FIREBASE_SERVICE_ACCOUNT to see signed-in app users.")),
     canQueryVisitors()
       ? hogql<[string, string, string, number, string | null, string | null]>(
-        `SELECT distinct_id, min(timestamp) AS first, max(timestamp) AS last, count() AS views,
+        `SELECT person_id, min(timestamp) AS first, max(timestamp) AS last, count() AS views,
                 any(properties.$os) AS os, any(properties.$raw_user_agent) AS ua
          FROM events
          WHERE event = '$pageview' AND timestamp > now() - INTERVAL 30 DAY
            AND (properties.app = 'desktop' OR properties.$raw_user_agent LIKE '%PDFellaDesktop%')
-         GROUP BY distinct_id
+         GROUP BY person_id
          HAVING countIf(properties.signed_in = true) = 0
          ORDER BY last DESC LIMIT 200`)
       : Promise.reject(new Error("Add POSTHOG_PERSONAL_API_KEY and POSTHOG_PROJECT_ID to see app users who aren't signed in.")),
