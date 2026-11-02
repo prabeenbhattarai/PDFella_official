@@ -6,9 +6,11 @@
 //!   opens in the system browser (Google blocks OAuth inside web views).
 //! - Receives the sign-in back through `pdfella://auth#…` and hands it to
 //!   /desktop-auth/complete (see src/lib/auth/desktop.ts in the web app).
-//! - Saves downloads to the Downloads folder and reveals them.
+//! - Saves downloads to the Downloads folder and reveals them in Finder/Explorer.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use tauri::webview::DownloadEvent;
 use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
@@ -107,6 +109,8 @@ pub fn run() {
             let nav_app = app.handle().clone();
             let dl_app = app.handle().clone();
             let downloads = app.path().download_dir().ok();
+            // Where each download is going, by URL: on macOS the Finished event has no path.
+            let saving: Arc<Mutex<HashMap<String, PathBuf>>> = Arc::default();
 
             WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
                 .title("PDFella")
@@ -123,7 +127,7 @@ pub fn run() {
                 })
                 .on_download(move |_webview, event| {
                     match event {
-                        DownloadEvent::Requested { destination, .. } => {
+                        DownloadEvent::Requested { url, destination } => {
                             if let Some(dir) = &downloads {
                                 let name = destination
                                     .file_name()
@@ -131,9 +135,15 @@ pub fn run() {
                                     .unwrap_or_else(|| "PDFella download".into());
                                 *destination = unique_path(dir, &name);
                             }
+                            saving.lock().unwrap().insert(url.to_string(), destination.clone());
                         }
-                        DownloadEvent::Finished { path: Some(path), success: true, .. } => {
-                            let _ = dl_app.opener().reveal_item_in_dir(path);
+                        DownloadEvent::Finished { url, path, success } => {
+                            let saved = saving.lock().unwrap().remove(url.as_str());
+                            if success {
+                                if let Some(file) = path.or(saved) {
+                                    let _ = dl_app.opener().reveal_item_in_dir(file);
+                                }
+                            }
                         }
                         _ => {}
                     }

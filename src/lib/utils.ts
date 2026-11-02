@@ -44,6 +44,11 @@ export function downloadBlob(blob: Blob, fileName: string) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  // The desktop app saves straight to Downloads with no browser download bar, so say where it went.
+  // Imported lazily: the toast module imports this file.
+  if (navigator.userAgent.includes("PDFellaDesktop")) {
+    void import("@/components/ui/toast").then(({ toast }) => toast.success("Saved to your Downloads folder", fileName));
+  }
 }
 
 export function clamp(v: number, min: number, max: number) {
