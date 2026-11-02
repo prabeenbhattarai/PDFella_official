@@ -118,7 +118,7 @@ export async function userStats(): Promise<UserStats> {
   };
 }
 
-export interface UserRow { email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null }
+export interface UserRow { email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null; country: string | null }
 export interface UserPage { total: number; page: number; pages: number; size: number; rows: UserRow[] }
 
 /** One page of every registered account, newest first, optionally filtered by name or email. */
@@ -137,6 +137,7 @@ export async function userPage({ page = 1, size = 20, q = "" }: { page?: number;
       createdAt: new Date(created(u)).toISOString(),
       lastSignInAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)).toISOString() : null,
       desktopLastUsed: (attributes(u).desktop as DesktopMark | undefined)?.last ?? null,
+      country: typeof attributes(u).country === "string" ? (attributes(u).country as string) : null,
     })),
   };
 }
@@ -187,6 +188,62 @@ export async function visitorStats(): Promise<VisitorStats> {
   };
   const [d1, d7, d30] = await Promise.all([window(1), window(7), window(30)]);
   return { d1, d7, d30 };
+}
+
+export interface Count { key: string; visitors: number; views: number }
+export interface Insights {
+  days: number;
+  /** ISO alpha-2 country → visitors / signed-in visitors (PostHog GeoIP; no IPs stored). */
+  countries: { code: string; visitors: number; signedIn: number }[];
+  sources: Count[];
+  pages: Count[];
+  devices: Count[];
+  browsers: Count[];
+  systems: Count[];
+  /** Visitors per day over the last 30 days, oldest first. */
+  daily: { date: string; visitors: number; views: number }[];
+}
+
+const insightsCache = new Map<number, { at: number; value: Insights }>();
+
+/** Where visitors come from and what they use, for the last `days` days. Cached for 5 minutes. */
+export async function insights(days: 1 | 7 | 30): Promise<Insights> {
+  const hit = insightsCache.get(days);
+  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.value;
+  const where = `event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY`;
+  const top = (expr: string, limit = 10, extra = "") => hogql<[string | null, number, number]>(
+    `SELECT ${expr} AS k, count(DISTINCT distinct_id) AS visitors, count() AS views FROM events
+     WHERE ${where} ${extra} GROUP BY k ORDER BY visitors DESC LIMIT ${limit}`,
+  ).then((rows) => rows.filter((r) => r[0]).map(([key, visitors, views]) => ({ key: String(key), visitors, views })));
+
+  const [countries, sources, pages, devices, browsers, systems, daily] = await Promise.all([
+    hogql<[string | null, number, number]>(
+      `SELECT properties.$geoip_country_code AS cc, count(DISTINCT distinct_id) AS visitors,
+              count(DISTINCT if(properties.signed_in = true, distinct_id, NULL)) AS signed
+       FROM events WHERE ${where} GROUP BY cc ORDER BY visitors DESC LIMIT 250`,
+    ).then((rows) => rows.filter((r) => r[0]).map(([code, visitors, signedIn]) => ({ code: String(code).toUpperCase(), visitors, signedIn }))),
+    // The site that sent the visit; pdfella.com itself means a full reload, so it's left out.
+    top(`if(properties.$referring_domain IN ('', '$direct') OR properties.$referring_domain IS NULL, 'Direct', if(startsWith(properties.$referring_domain, 'www.'), substring(properties.$referring_domain, 5), properties.$referring_domain))`, 10,
+      `AND (properties.$referring_domain IS NULL OR properties.$referring_domain NOT LIKE '%pdfella.com')`),
+    top("properties.$pathname", 12),
+    top("properties.$device_type", 5),
+    top("properties.$browser", 8),
+    top("properties.$os", 8),
+    hogql<[string, number, number]>(
+      `SELECT toString(toDate(timestamp)) AS d, count(DISTINCT distinct_id), count() FROM events
+       WHERE event = '$pageview' AND timestamp > now() - INTERVAL 30 DAY GROUP BY d ORDER BY d`,
+    ),
+  ]);
+  const byDate = new Map(daily.map(([d, v, n]) => [d, { visitors: v, views: n }]));
+  const value: Insights = {
+    days, countries, sources, pages, devices, browsers, systems,
+    daily: Array.from({ length: 30 }, (_, i) => {
+      const date = new Date(Date.now() - (29 - i) * DAY).toISOString().slice(0, 10);
+      return { date, ...(byDate.get(date) ?? { visitors: 0, views: 0 }) };
+    }),
+  };
+  insightsCache.set(days, { at: Date.now(), value });
+  return value;
 }
 
 export interface DesktopWindow { users: number; mac: number; windows: number; pageviews: number }
@@ -265,10 +322,11 @@ export function desktopAgent(ua: string): { os: string | null; version: string |
 }
 
 /**
- * Records that a signed-in account opened the desktop app, on the account itself
- * (no separate database). Written at most every 30 minutes per account.
+ * Records a signed-in session on the account itself (no separate database): the
+ * country Vercel detected for the request, and, from the desktop app, a `desktop`
+ * mark. Written at most every 30 minutes per account unless something changed.
  */
-export async function markDesktopUse(uid: string, agent: { os: string | null; version: string | null }) {
+export async function markSeen(uid: string, seen: { country: string | null; agent: { os: string | null; version: string | null } | null }) {
   const token = await googleAccessToken();
   const api = `https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}`;
   const res = await fetch(`${api}/accounts:lookup`, {
@@ -278,15 +336,33 @@ export async function markDesktopUse(uid: string, agent: { os: string | null; ve
   const user = ((await res.json().catch(() => ({}))).users ?? [])[0] as RestUser | undefined;
   if (!res.ok || !user) throw new Error(`Couldn't read the account (${res.status})`);
   const attrs = attributes(user);
-  const prev = attrs.desktop as DesktopMark | undefined;
   const now = new Date().toISOString();
-  if (prev && Date.now() - Date.parse(prev.last) < 30 * 60_000 && prev.v === agent.version) return;
-  const desktop: DesktopMark = { first: prev?.first ?? now, last: now, os: agent.os, v: agent.version, opens: (prev?.opens ?? 0) + 1 };
+  const next: Record<string, unknown> = { ...attrs };
+  let changed = false;
+  if (seen.country && attrs.country !== seen.country) { next.country = seen.country; changed = true; }
+  if (seen.agent) {
+    const prev = attrs.desktop as DesktopMark | undefined;
+    if (!prev || Date.now() - Date.parse(prev.last) >= 30 * 60_000 || prev.v !== seen.agent.version) {
+      next.desktop = { first: prev?.first ?? now, last: now, os: seen.agent.os, v: seen.agent.version, opens: (prev?.opens ?? 0) + 1 } satisfies DesktopMark;
+      changed = true;
+    }
+  }
+  if (!changed) return;
   const update = await fetch(`${api}/accounts:update`, {
     method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ localId: uid, customAttributes: JSON.stringify({ ...attrs, desktop }) }), cache: "no-store",
+    body: JSON.stringify({ localId: uid, customAttributes: JSON.stringify(next) }), cache: "no-store",
   });
   if (!update.ok) throw new Error(`Couldn't update the account (${update.status})`);
+}
+
+/** Registered accounts per country (ISO alpha-2), from the `country` markSeen records. */
+export async function accountsByCountry(): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  for (const u of await listUsers()) {
+    const c = attributes(u).country;
+    if (typeof c === "string" && c) out[c] = (out[c] ?? 0) + 1;
+  }
+  return out;
 }
 
 export interface DesktopPerson {

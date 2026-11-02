@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, getFirebaseAuth, toAuthUser } from "@/lib/auth/firebase";
-import { isDesktopApp } from "@/lib/auth/desktop";
 import { loadGsi } from "@/lib/auth/gsi";
 import { SignInDialog, SKIPPED } from "./sign-in-dialog";
 import { SignOutOverlay } from "./sign-out-overlay";
@@ -46,12 +45,12 @@ export function AuthProvider() {
     };
   }, []);
 
-  // Desktop app: note this account on the admin panel's list of app users, once per session.
+  // Once per session: record this account's country (and desktop app use) for the admin panel.
   const uid = user?.uid;
   useEffect(() => {
-    if (!uid || !isDesktopApp()) return;
-    try { if (sessionStorage.getItem("pdfella:desktop-seen") === uid) return; sessionStorage.setItem("pdfella:desktop-seen", uid); } catch { /* storage blocked */ }
-    void currentIdToken().then((token) => token ? fetch("/api/auth/desktop-seen", { method: "POST", headers: { Authorization: `Bearer ${token}` } }) : null).catch(() => {});
+    if (!uid) return;
+    try { if (sessionStorage.getItem("pdfella:seen") === uid) return; sessionStorage.setItem("pdfella:seen", uid); } catch { /* storage blocked */ }
+    void currentIdToken().then((token) => token ? fetch("/api/auth/seen", { method: "POST", headers: { Authorization: `Bearer ${token}` } }) : null).catch(() => {});
   }, [uid]);
 
   const editor = pathname.startsWith("/editor");

@@ -9,6 +9,7 @@ import { LogoMark } from "@/components/ui/logo";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
 import { UsersTable } from "./users-table";
+import { BreakdownSection } from "./breakdown";
 import type { DesktopPeople, DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
 
 /** The only account that may sign in here. The server checks this too (ADMIN_EMAILS). */
@@ -24,9 +25,9 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefin
 
 function Card({ icon: Icon, label, value, hint, tone = "default" }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint?: string; tone?: "default" | "accent" }) {
   return (
-    <div className={cn("rounded-2xl border p-5", tone === "accent" ? "border-accent/30 bg-accent-soft" : "border-border bg-surface")}>
-      <div className="flex items-center gap-2 text-[13px] font-medium text-ink-3"><Icon className={cn("size-4", tone === "accent" && "text-accent")} aria-hidden /> {label}</div>
-      <p className="mt-3 text-[32px] leading-none font-semibold tracking-tight text-ink tabular-nums">{value}</p>
+    <div className={cn("min-w-0 rounded-2xl border p-4 sm:p-5", tone === "accent" ? "border-accent/30 bg-accent-soft" : "border-border bg-surface")}>
+      <div className="flex items-center gap-2 text-[12.5px] font-medium text-ink-3 sm:text-[13px]"><Icon className={cn("size-4", tone === "accent" && "text-accent")} aria-hidden /> {label}</div>
+      <p className="mt-3 text-[26px] leading-none font-semibold tracking-tight text-ink tabular-nums sm:text-[32px]">{value}</p>
       {hint && <p className="mt-2 text-[12.5px] text-ink-3">{hint}</p>}
     </div>
   );
@@ -212,11 +213,11 @@ export function AdminDashboard() {
           <h1 className="text-[28px] font-semibold tracking-tight text-ink">Overview</h1>
           <p className="mt-1 text-[13px] text-ink-3">{stats ? `Updated ${when(stats.generatedAt)}` : "Loading…"}</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl border border-border bg-surface p-1" role="tablist" aria-label="Time range">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="flex flex-1 rounded-xl border border-border bg-surface p-1 sm:flex-none" role="tablist" aria-label="Time range">
             {WINDOWS.map((w) => (
               <button key={w.id} role="tab" aria-selected={win === w.id} onClick={() => setWin(w.id)}
-                className={cn("rounded-lg px-3 py-1.5 text-[13px] font-medium", win === w.id ? "bg-ink text-bg" : "text-ink-3 hover:text-ink")}>{w.label}</button>
+                className={cn("flex-1 rounded-lg px-3 py-1.5 text-[13px] font-medium whitespace-nowrap sm:flex-none", win === w.id ? "bg-ink text-bg" : "text-ink-3 hover:text-ink")}>{w.label}</button>
             ))}
           </div>
           <button type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh" className="flex size-10 items-center justify-center rounded-xl border border-border bg-surface text-ink-2 hover:bg-surface-2">
@@ -228,8 +229,8 @@ export function AdminDashboard() {
       {error && error.status !== 403 && <p role="alert" className="mt-6 rounded-xl bg-danger/10 px-4 py-3 text-[14px] text-danger">{error.message}</p>}
 
       <h2 className="mt-8 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Visitors · {WINDOWS.find((w) => w.id === win)!.label}</h2>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats && "error" in stats.visitors ? <div className="sm:col-span-2 lg:col-span-4"><Missing text={stats.visitors.error} /></div> : (
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {stats && "error" in stats.visitors ? <div className="col-span-2 lg:col-span-4"><Missing text={stats.visitors.error} /></div> : (
           <>
             <Card icon={Users} label="Unique visitors" value={v ? fmt(v.visitors) : "…"} hint="Everyone who opened a page" />
             <Card icon={UserX} label="Not registered" value={v ? fmt(v.guests) : "…"} hint={v && v.visitors ? `${Math.round((v.guests / v.visitors) * 100)}% of visitors` : "Used PDFella without signing in"} />
@@ -239,9 +240,11 @@ export function AdminDashboard() {
         )}
       </div>
 
+      <BreakdownSection days={win === "d1" ? 1 : win === "d30" ? 30 : 7} label={label} refreshKey={refreshKey} />
+
       <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Desktop app</h2>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {"error" in stats.downloads ? <div className="sm:col-span-2"><Missing text={stats.downloads.error} /></div> : (
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {"error" in stats.downloads ? <div className="col-span-2"><Missing text={stats.downloads.error} /></div> : (
           <>
             <Card icon={Download} label="Downloads · all time" value={dl ? fmt(dl.total) : "…"} hint="Installer downloads from the download page" tone="accent" />
             <Card icon={AppleLogo} label="macOS downloads" value={dl ? fmt(dl.mac) : "…"} hint={dl && dl.total ? `${Math.round((dl.mac / dl.total) * 100)}% of downloads` : undefined} />
@@ -278,7 +281,7 @@ export function AdminDashboard() {
       <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Registered users</h2>
       {stats && "error" in stats.users ? <div className="mt-3"><Missing text={stats.users.error} /></div> : (
         <>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Card icon={UserCheck} label="Total registered" value={u ? fmt(u.total) : "…"} hint="All time" tone="accent" />
             <Card icon={UserPlus} label={`New · ${WINDOWS.find((w) => w.id === win)!.label}`} value={u ? fmt(u.new[win]) : "…"} />
             <Card icon={Users} label={`Active · ${WINDOWS.find((w) => w.id === win)!.label}`} value={u ? fmt(u.active[win]) : "…"} hint="Signed in or used the site while signed in" />

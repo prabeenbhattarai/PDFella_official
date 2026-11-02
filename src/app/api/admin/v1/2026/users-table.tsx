@@ -8,6 +8,8 @@ import type { UserPage } from "@/lib/server/admin";
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 const SIZES = [20, 50, 100];
+const region = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch { return null; } })();
+const flag = (code: string) => String.fromCodePoint(...[...code].map((c) => 0x1f1a5 + c.charCodeAt(0)));
 
 /** Every registered account, page by page, with search. Reads /api/admin/v1/2026/accounts. */
 export function UsersTable({ refreshKey }: { refreshKey: number }) {
@@ -70,10 +72,10 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left text-[14px]">
           <thead className="bg-surface-2/60 text-[12px] text-ink-3">
-            <tr><th className="w-12 px-5 py-2 font-medium">#</th><th className="px-5 py-2 font-medium">User</th><th className="px-5 py-2 font-medium">Joined</th><th className="px-5 py-2 font-medium">Last sign-in</th><th className="px-5 py-2 font-medium">Desktop app</th></tr>
+            <tr><th className="w-12 px-5 py-2 font-medium">#</th><th className="px-5 py-2 font-medium">User</th><th className="px-5 py-2 font-medium">Country</th><th className="px-5 py-2 font-medium">Joined</th><th className="px-5 py-2 font-medium">Last sign-in</th><th className="px-5 py-2 font-medium">Desktop app</th></tr>
           </thead>
           <tbody className={cn(loading && "opacity-60")}>
-            {data && data.rows.length === 0 && <tr><td colSpan={5} className="px-5 py-8 text-center text-ink-3">{q ? `No one matches “${q}”.` : "No one has signed up yet."}</td></tr>}
+            {data && data.rows.length === 0 && <tr><td colSpan={6} className="px-5 py-8 text-center text-ink-3">{q ? `No one matches “${q}”.` : "No one has signed up yet."}</td></tr>}
             {data?.rows.map((r, i) => (
               <tr key={`${r.email}-${r.createdAt}`} className="border-t border-border">
                 <td className="px-5 py-3 text-ink-3 tabular-nums">{from + i}</td>
@@ -84,6 +86,9 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
                     <div className="min-w-0"><p className="truncate font-medium text-ink">{r.name ?? "—"}</p><p className="truncate text-[12.5px] text-ink-3">{r.email}</p></div>
                   </div>
                 </td>
+                <td className="px-5 py-3 whitespace-nowrap text-ink-2">
+                  {r.country ? <span title={r.country}><span aria-hidden>{flag(r.country)}</span> {region?.of(r.country) ?? r.country}</span> : <span className="text-ink-3">—</span>}
+                </td>
                 <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.createdAt)}</td>
                 <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.lastSignInAt)}</td>
                 <td className="px-5 py-3 whitespace-nowrap">
@@ -93,7 +98,7 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
                 </td>
               </tr>
             ))}
-            {!data && !error && <tr><td colSpan={5} className="px-5 py-8 text-center text-ink-3">Loading…</td></tr>}
+            {!data && !error && <tr><td colSpan={6} className="px-5 py-8 text-center text-ink-3">Loading…</td></tr>}
           </tbody>
         </table>
       </div>
