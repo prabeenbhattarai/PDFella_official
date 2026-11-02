@@ -8,6 +8,7 @@ import { brand } from "@/lib/brand";
 import { LogoMark } from "@/components/ui/logo";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
+import { UsersTable } from "./users-table";
 import type { DesktopPeople, DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
 
 /** The only account that may sign in here. The server checks this too (ADMIN_EMAILS). */
@@ -105,12 +106,15 @@ export function AdminDashboard() {
   const [error, setError] = useState<{ status: number; message: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Bumped by Refresh so the users table reloads with the overview.
+  const [refreshKey, setRefreshKey] = useState(0);
   const [win, setWin] = useState<Win>("d7");
   const [rejected, setRejected] = useState<string | null>(null);
   const isOwner = user?.email?.toLowerCase() === OWNER;
 
   const load = useCallback(async () => {
     setLoading(true);
+    setRefreshKey((k) => k + 1);
     setError(null);
     try {
       const token = await currentIdToken();
@@ -281,32 +285,7 @@ export function AdminDashboard() {
             <Card icon={UserPlus} label="New · 30 days" value={u ? fmt(u.new.d30) : "…"} />
           </div>
           {u && <div className="mt-3"><SignupChart daily={u.daily} /></div>}
-          {u && (
-            <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
-              <p className="border-b border-border px-5 py-3 text-[13px] font-medium text-ink-3">Latest sign-ups</p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[14px]">
-                  <thead className="text-[12px] text-ink-3"><tr><th className="px-5 py-2 font-medium">User</th><th className="px-5 py-2 font-medium">Joined</th><th className="px-5 py-2 font-medium">Last sign-in</th></tr></thead>
-                  <tbody>
-                    {u.recent.length === 0 && <tr><td colSpan={3} className="px-5 py-6 text-center text-ink-3">No one has signed up yet.</td></tr>}
-                    {u.recent.map((r) => (
-                      <tr key={`${r.email}-${r.createdAt}`} className="border-t border-border">
-                        <td className="px-5 py-3">
-                          <div className="flex items-center gap-3">
-                            {/* eslint-disable-next-line @next/next/no-img-element -- remote Google avatar */}
-                            {r.photo ? <img src={r.photo} alt="" referrerPolicy="no-referrer" className="size-8 rounded-full" /> : <span className="flex size-8 items-center justify-center rounded-full bg-surface-2 text-[13px] font-semibold">{(r.name ?? r.email ?? "?").charAt(0).toUpperCase()}</span>}
-                            <div className="min-w-0"><p className="truncate font-medium text-ink">{r.name ?? "—"}</p><p className="truncate text-[12.5px] text-ink-3">{r.email}</p></div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.createdAt)}</td>
-                        <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.lastSignInAt)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
+          <UsersTable refreshKey={refreshKey} />
         </>
       )}
       <p className="mt-8 text-[12px] text-ink-3">Visitors and app users come from PostHog. Without cookies a visitor gets a new anonymous ID each day, so 7- and 30-day counts include repeat visits on different days. Downloads come from GitHub and include the test downloads made while setting the app up.</p>

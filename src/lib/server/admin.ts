@@ -94,7 +94,6 @@ export interface UserStats {
   active: { d1: number; d7: number; d30: number };
   /** Sign-ups per day for the last 30 days, oldest first. */
   daily: { date: string; signups: number }[];
-  recent: { email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null }[];
 }
 
 export async function userStats(): Promise<UserStats> {
@@ -116,9 +115,28 @@ export async function userStats(): Promise<UserStats> {
     new: { d1: count((u) => within(created(u), 1)), d7: count((u) => within(created(u), 7)), d30: count((u) => within(created(u), 30)) },
     active: { d1: count((u) => within(lastSeen(u), 1)), d7: count((u) => within(lastSeen(u), 7)), d30: count((u) => within(lastSeen(u), 30)) },
     daily,
-    recent: [...users].sort((a, b) => created(b) - created(a)).slice(0, 25).map((u) => ({
+  };
+}
+
+export interface UserRow { email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null }
+export interface UserPage { total: number; page: number; pages: number; size: number; rows: UserRow[] }
+
+/** One page of every registered account, newest first, optionally filtered by name or email. */
+export async function userPage({ page = 1, size = 20, q = "" }: { page?: number; size?: number; q?: string }): Promise<UserPage> {
+  const needle = q.trim().toLowerCase();
+  const created = (u: RestUser) => Number(u.createdAt ?? 0);
+  const all = (await listUsers())
+    .filter((u) => !needle || `${u.email ?? ""} ${u.displayName ?? ""}`.toLowerCase().includes(needle))
+    .sort((a, b) => created(b) - created(a));
+  const pages = Math.max(1, Math.ceil(all.length / size));
+  const current = Math.min(Math.max(1, page), pages);
+  return {
+    total: all.length, page: current, pages, size,
+    rows: all.slice((current - 1) * size, current * size).map((u) => ({
       email: u.email ?? null, name: u.displayName ?? null, photo: u.photoUrl ?? null,
-      createdAt: new Date(created(u)).toISOString(), lastSignInAt: lastLogin(u) ? new Date(lastLogin(u)!).toISOString() : null,
+      createdAt: new Date(created(u)).toISOString(),
+      lastSignInAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)).toISOString() : null,
+      desktopLastUsed: (attributes(u).desktop as DesktopMark | undefined)?.last ?? null,
     })),
   };
 }
