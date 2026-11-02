@@ -153,12 +153,6 @@ export const canQueryVisitors = () => !!(PH_KEY && PH_PROJECT);
 export interface VisitorWindow { visitors: number; signedIn: number; guests: number; pageviews: number }
 export type VisitorStats = Record<"d1" | "d7" | "d30", VisitorWindow>;
 
-/**
- * Unique visitors from PostHog, split by the `signed_in` property the site sets
- * on every event. Events from before sign-in existed count as guests. In
- * cookieless mode a visitor gets a new anonymous ID each day, so multi-day
- * windows count someone who came on 3 days as 3 visitors.
- */
 /** Runs a HogQL query against the PostHog project and returns its rows. */
 async function hogql<Row extends unknown[]>(query: string): Promise<Row[]> {
   const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
@@ -176,15 +170,21 @@ async function hogql<Row extends unknown[]>(query: string): Promise<Row[]> {
   return ((await res.json()).results ?? []) as Row[];
 }
 
+/**
+ * Unique visitors from PostHog, split by the `signed_in` property the site sets
+ * on every event. Events from before sign-in existed count as guests. In
+ * cookieless mode a visitor gets a new anonymous ID each day, so multi-day
+ * windows count someone who came on 3 days as 3 visitors.
+ */
 export async function visitorStats(): Promise<VisitorStats> {
   const window = async (days: number): Promise<VisitorWindow> => {
-    const rows = await hogql<[string, number, number]>(
-      `SELECT if(properties.signed_in = true, 'in', 'out') AS who, count(DISTINCT distinct_id) AS visitors, count() AS pageviews
-       FROM events WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY GROUP BY who`,
+    // One row, each person counted once: someone who signed in partway through a visit has
+    // events on both sides, so summing per-group counts would count them twice.
+    const [[visitors, signedIn, pageviews] = [0, 0, 0]] = await hogql<[number, number, number]>(
+      `SELECT count(DISTINCT distinct_id), count(DISTINCT if(properties.signed_in = true, distinct_id, NULL)), count()
+       FROM events WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY`,
     );
-    const signedIn = rows.find((r) => r[0] === "in")?.[1] ?? 0;
-    const guests = rows.find((r) => r[0] === "out")?.[1] ?? 0;
-    return { visitors: signedIn + guests, signedIn, guests, pageviews: rows.reduce((n, r) => n + r[2], 0) };
+    return { visitors, signedIn, guests: visitors - signedIn, pageviews };
   };
   const [d1, d7, d30] = await Promise.all([window(1), window(7), window(30)]);
   return { d1, d7, d30 };
