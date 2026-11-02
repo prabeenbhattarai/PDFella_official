@@ -94,7 +94,7 @@ export function DownloadButtons() {
       </ul>
 
       <p className="mx-auto mt-10 max-w-2xl text-center text-[13px] text-ink-3">
-        macOS says the app is from an unidentified developer? Right-click {brand.name} in Applications and choose <strong className="text-ink-2">Open</strong>. On Windows, choose <strong className="text-ink-2">More info → Run anyway</strong>.{" "}
+        macOS says it can&apos;t verify {brand.name}? Click <strong className="text-ink-2">Done</strong>, then open <strong className="text-ink-2">System Settings → Privacy &amp; Security</strong>, scroll down and click <strong className="text-ink-2">Open Anyway</strong>. You only do this once. On Windows, choose <strong className="text-ink-2">More info → Run anyway</strong>.{" "}
         <a href={RELEASES} className="underline hover:text-ink">All releases</a>
       </p>
     </>
