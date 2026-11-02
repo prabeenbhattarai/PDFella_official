@@ -11,7 +11,8 @@ test("add text, save, rename and download a real PDF", async ({ page }) => {
   await page.keyboard.type("Approved by the board");
   await page.keyboard.press("Escape");
   const d = await saveAndDownload(page, "Final Contract - October 2026");
-  expect(d.suggestedFilename()).toBe("Final Contract - October 2026.pdf");
+  // WebKit on Linux (CI) swaps spaces for underscores in download names; the page asks for spaces.
+  expect(d.suggestedFilename().replace(/_/g, " ")).toBe("Final Contract - October 2026.pdf");
   const text = await pdfText(await downloadBytes(d));
   expect(text).toHaveLength(3);
   expect(text[0]).toContain("Approved by the board");
