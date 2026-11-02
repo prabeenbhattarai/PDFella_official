@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { CaptureResult } from "posthog-js";
 import { useAuth } from "@/lib/auth/store";
+import { isDesktopApp } from "@/lib/auth/desktop";
 
 /**
  * PostHog product analytics. Loads only when NEXT_PUBLIC_POSTHOG_KEY is set, and
@@ -46,6 +47,8 @@ export function PostHogAnalytics() {
         before_send: scrub,
       });
       window.__pdfellaAnalytics = (event, props) => posthog.capture(event, props);
+      // Lets the admin panel count desktop app users apart from the website.
+      posthog.register({ app: isDesktopApp() ? "desktop" : "web" });
       // Lets the admin panel split visitors into signed-in and not registered.
       const tag = (signedIn: boolean) => posthog.register({ signed_in: signedIn });
       tag(!!useAuth.getState().user);

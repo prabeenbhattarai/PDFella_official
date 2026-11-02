@@ -140,31 +140,92 @@ export type VisitorStats = Record<"d1" | "d7" | "d30", VisitorWindow>;
  * cookieless mode a visitor gets a new anonymous ID each day, so multi-day
  * windows count someone who came on 3 days as 3 visitors.
  */
+/** Runs a HogQL query against the PostHog project and returns its rows. */
+async function hogql<Row extends unknown[]>(query: string): Promise<Row[]> {
+  const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${PH_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query: { kind: "HogQLQuery", query } }),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.json().then((b) => b.detail ?? b.message ?? "", () => "");
+    throw new Error(res.status === 403
+      ? `PostHog refused the key (403${detail ? `: ${detail}` : ""}). Give the personal API key the "Query: Read" scope and access to project ${PH_PROJECT}.`
+      : `PostHog query failed (${res.status}${detail ? `: ${detail}` : ""})`);
+  }
+  return ((await res.json()).results ?? []) as Row[];
+}
+
 export async function visitorStats(): Promise<VisitorStats> {
   const window = async (days: number): Promise<VisitorWindow> => {
-    const res = await fetch(`${PH_HOST}/api/projects/${PH_PROJECT}/query/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${PH_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: {
-          kind: "HogQLQuery",
-          query: `SELECT if(properties.signed_in = true, 'in', 'out') AS who, count(DISTINCT distinct_id) AS visitors, count() AS pageviews
-                  FROM events WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY GROUP BY who`,
-        },
-      }),
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      const detail = await res.json().then((b) => b.detail ?? b.message ?? "", () => "");
-      throw new Error(res.status === 403
-        ? `PostHog refused the key (403${detail ? `: ${detail}` : ""}). Give the personal API key the "Query: Read" scope and access to project ${PH_PROJECT}.`
-        : `PostHog query failed (${res.status}${detail ? `: ${detail}` : ""})`);
-    }
-    const rows = ((await res.json()).results ?? []) as [string, number, number][];
+    const rows = await hogql<[string, number, number]>(
+      `SELECT if(properties.signed_in = true, 'in', 'out') AS who, count(DISTINCT distinct_id) AS visitors, count() AS pageviews
+       FROM events WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY GROUP BY who`,
+    );
     const signedIn = rows.find((r) => r[0] === "in")?.[1] ?? 0;
     const guests = rows.find((r) => r[0] === "out")?.[1] ?? 0;
     return { visitors: signedIn + guests, signedIn, guests, pageviews: rows.reduce((n, r) => n + r[2], 0) };
   };
   const [d1, d7, d30] = await Promise.all([window(1), window(7), window(30)]);
   return { d1, d7, d30 };
+}
+
+export interface DesktopWindow { users: number; mac: number; windows: number; pageviews: number }
+export type DesktopUsage = Record<"d1" | "d7" | "d30", DesktopWindow>;
+
+/**
+ * Desktop app users: page views whose user agent carries "PDFellaDesktop" (set by
+ * desktop/src-tauri/src/lib.rs), or tagged app=desktop by components/analytics/posthog.tsx.
+ * Same cookieless caveat as visitorStats.
+ */
+export async function desktopUsage(): Promise<DesktopUsage> {
+  const window = async (days: number): Promise<DesktopWindow> => {
+    const rows = await hogql<[string, number, number]>(
+      `SELECT multiIf(properties.$os = 'Windows', 'windows', properties.$os ILIKE '%mac%', 'mac', 'other') AS os,
+              count(DISTINCT distinct_id) AS users, count() AS pageviews
+       FROM events
+       WHERE event = '$pageview' AND timestamp > now() - INTERVAL ${days} DAY
+         AND (properties.app = 'desktop' OR properties.$raw_user_agent LIKE '%PDFellaDesktop%')
+       GROUP BY os`,
+    );
+    const get = (os: string) => rows.find((r) => r[0] === os)?.[1] ?? 0;
+    return { users: rows.reduce((n, r) => n + r[1], 0), mac: get("mac"), windows: get("windows"), pageviews: rows.reduce((n, r) => n + r[2], 0) };
+  };
+  const [d1, d7, d30] = await Promise.all([window(1), window(7), window(30)]);
+  return { d1, d7, d30 };
+}
+
+// ───────── desktop downloads (GitHub releases)
+
+const RELEASES_REPO = "prabeenbhattarai/PDFella_official";
+
+export interface DownloadStats {
+  total: number;
+  mac: number;
+  windows: number;
+  releases: { tag: string; publishedAt: string | null; mac: number; windows: number }[];
+}
+
+/**
+ * Installer downloads, all time, from GitHub's per-file download counts (public,
+ * no key needed; GITHUB_TOKEN only raises the rate limit). Updater archives
+ * (.tar.gz) aren't installs, so they're left out.
+ */
+export async function downloadStats(): Promise<DownloadStats> {
+  const res = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=100`, {
+    headers: { Accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) },
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(res.status === 403 || res.status === 429 ? "GitHub rate limit reached. Try again in a few minutes, or set GITHUB_TOKEN." : `GitHub returned ${res.status}`);
+  const list = (await res.json()) as { tag_name: string; published_at: string | null; assets: { name: string; download_count: number }[] }[];
+  const releases = list
+    .filter((r) => r.tag_name.startsWith("desktop-v"))
+    .map((r) => {
+      const sum = (ext: string) => r.assets.filter((a) => a.name.endsWith(ext)).reduce((n, a) => n + a.download_count, 0);
+      return { tag: r.tag_name.replace(/^desktop-/, ""), publishedAt: r.published_at, mac: sum(".dmg"), windows: sum(".exe") };
+    });
+  const mac = releases.reduce((n, r) => n + r.mac, 0);
+  const windows = releases.reduce((n, r) => n + r.windows, 0);
+  return { total: mac + windows, mac, windows, releases };
 }

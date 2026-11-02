@@ -1,26 +1,27 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, LogOut, RefreshCw, ShieldAlert, UserCheck, UserPlus, Users, UserX } from "lucide-react";
+import { Download, Loader2, LogOut, MonitorSmartphone, RefreshCw, ShieldAlert, UserCheck, UserPlus, Users, UserX } from "lucide-react";
+import { AppleLogo, WindowsLogo } from "@/components/marketing/desktop-platforms";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
 import { LogoMark } from "@/components/ui/logo";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
-import type { UserStats, VisitorStats } from "@/lib/server/admin";
+import type { DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
 
 /** The only account that may sign in here. The server checks this too (ADMIN_EMAILS). */
 const OWNER = (process.env.NEXT_PUBLIC_ADMIN_EMAIL || "prabeenbhattarai7450@gmail.com").toLowerCase();
 
 type Part<T> = { data: T } | { error: string };
-interface Stats { admin: string; generatedAt: string; users: Part<UserStats>; visitors: Part<VisitorStats> }
+interface Stats { admin: string; generatedAt: string; users: Part<UserStats>; visitors: Part<VisitorStats>; downloads: Part<DownloadStats>; desktop: Part<DesktopUsage> }
 type Win = "d1" | "d7" | "d30";
 const WINDOWS: { id: Win; label: string }[] = [{ id: "d1", label: "24 hours" }, { id: "d7", label: "7 days" }, { id: "d30", label: "30 days" }];
 
 const fmt = (n: number) => n.toLocaleString();
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 
-function Card({ icon: Icon, label, value, hint, tone = "default" }: { icon: typeof Users; label: string; value: string; hint?: string; tone?: "default" | "accent" }) {
+function Card({ icon: Icon, label, value, hint, tone = "default" }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; hint?: string; tone?: "default" | "accent" }) {
   return (
     <div className={cn("rounded-2xl border p-5", tone === "accent" ? "border-accent/30 bg-accent-soft" : "border-border bg-surface")}>
       <div className="flex items-center gap-2 text-[13px] font-medium text-ink-3"><Icon className={cn("size-4", tone === "accent" && "text-accent")} aria-hidden /> {label}</div>
@@ -151,6 +152,9 @@ export function AdminDashboard() {
 
   const v = "data" in stats.visitors ? stats.visitors.data[win] : null;
   const u = "data" in stats.users ? stats.users.data : null;
+  const dl = "data" in stats.downloads ? stats.downloads.data : null;
+  const dk = "data" in stats.desktop ? stats.desktop.data[win] : null;
+  const label = WINDOWS.find((w) => w.id === win)!.label;
 
   return (
     <Shell user={user.email}>
@@ -185,6 +189,40 @@ export function AdminDashboard() {
           </>
         )}
       </div>
+
+      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Desktop app</h2>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {"error" in stats.downloads ? <div className="sm:col-span-2"><Missing text={stats.downloads.error} /></div> : (
+          <>
+            <Card icon={Download} label="Downloads · all time" value={dl ? fmt(dl.total) : "…"} hint="Installer downloads from the download page" tone="accent" />
+            <Card icon={AppleLogo} label="macOS downloads" value={dl ? fmt(dl.mac) : "…"} hint={dl && dl.total ? `${Math.round((dl.mac / dl.total) * 100)}% of downloads` : undefined} />
+            <Card icon={WindowsLogo} label="Windows downloads" value={dl ? fmt(dl.windows) : "…"} hint={dl && dl.total ? `${Math.round((dl.windows / dl.total) * 100)}% of downloads` : undefined} />
+          </>
+        )}
+        {"error" in stats.desktop ? <Missing text={stats.desktop.error} /> : (
+          <Card icon={MonitorSmartphone} label={`App users · ${label}`} value={dk ? fmt(dk.users) : "…"} hint={dk ? `${fmt(dk.mac)} Mac · ${fmt(dk.windows)} Windows · ${fmt(dk.pageviews)} page views` : undefined} />
+        )}
+      </div>
+      {dl && dl.releases.length > 0 && (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-border bg-surface">
+          <p className="border-b border-border px-5 py-3 text-[13px] font-medium text-ink-3">Downloads by version</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[14px]">
+              <thead className="text-[12px] text-ink-3"><tr><th className="px-5 py-2 font-medium">Version</th><th className="px-5 py-2 font-medium">Released</th><th className="px-5 py-2 text-right font-medium">macOS</th><th className="px-5 py-2 text-right font-medium">Windows</th></tr></thead>
+              <tbody>
+                {dl.releases.map((r) => (
+                  <tr key={r.tag} className="border-t border-border">
+                    <td className="px-5 py-2.5 font-medium text-ink">{r.tag}</td>
+                    <td className="px-5 py-2.5 whitespace-nowrap text-ink-2">{when(r.publishedAt)}</td>
+                    <td className="px-5 py-2.5 text-right text-ink-2 tabular-nums">{fmt(r.mac)}</td>
+                    <td className="px-5 py-2.5 text-right text-ink-2 tabular-nums">{fmt(r.windows)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Registered users</h2>
       {stats && "error" in stats.users ? <div className="mt-3"><Missing text={stats.users.error} /></div> : (
@@ -224,7 +262,7 @@ export function AdminDashboard() {
           )}
         </>
       )}
-      <p className="mt-8 text-[12px] text-ink-3">Visitors come from PostHog. Without cookies a visitor gets a new anonymous ID each day, so 7- and 30-day counts include repeat visits on different days.</p>
+      <p className="mt-8 text-[12px] text-ink-3">Visitors and app users come from PostHog. Without cookies a visitor gets a new anonymous ID each day, so 7- and 30-day counts include repeat visits on different days. Downloads come from GitHub and include the test downloads made while setting the app up.</p>
     </Shell>
   );
 }
