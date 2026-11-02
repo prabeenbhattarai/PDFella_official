@@ -17,6 +17,8 @@ interface AuthState {
   /** False until Firebase has restored (or ruled out) a previous session. */
   ready: boolean;
   prompt: { feature: LockedFeature; onUnlock?: () => void } | null;
+  /** Who is being signed out, while the sign-out screen shows (see signOutUser). */
+  signingOut: { user: AuthUser; done: boolean } | null;
   setUser(user: AuthUser | null): void;
   openPrompt(feature: LockedFeature, onUnlock?: () => void): void;
   closePrompt(): void;
@@ -26,6 +28,7 @@ export const useAuth = create<AuthState>((set) => ({
   user: null,
   ready: !authEnabled,
   prompt: null,
+  signingOut: null,
   setUser: (user) => set((s) => {
     // Finish what the visitor was doing when they signed in from the prompt.
     if (user && s.prompt?.onUnlock) queueMicrotask(s.prompt.onUnlock);

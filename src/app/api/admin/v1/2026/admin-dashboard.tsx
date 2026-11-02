@@ -86,7 +86,7 @@ export function AdminDashboard() {
     // Any other Google account is signed straight back out; we never ask the server for data.
     if (!isOwner) {
       setRejected(user.email ?? "That account");
-      void signOutUser();
+      void signOutUser({ quiet: true });
       return;
     }
     setRejected(null);

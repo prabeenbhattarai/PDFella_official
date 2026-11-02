@@ -6,6 +6,7 @@ import { authEnabled, useAuth } from "@/lib/auth/store";
 import { getFirebaseAuth, toAuthUser } from "@/lib/auth/firebase";
 import { loadGsi } from "@/lib/auth/gsi";
 import { SignInDialog, SKIPPED } from "./sign-in-dialog";
+import { SignOutOverlay } from "./sign-out-overlay";
 
 const skipped = () => { try { return sessionStorage.getItem(SKIPPED) === "1"; } catch { return false; } };
 
@@ -54,5 +55,5 @@ export function AuthProvider() {
   // Everywhere else: One Tap, so returning visitors sign in with a single tap.
   useOneTap(authEnabled && ready && !user && !editor && !pathname.startsWith("/api/admin"));
 
-  return authEnabled ? <SignInDialog /> : null;
+  return authEnabled ? <><SignInDialog /><SignOutOverlay /></> : null;
 }

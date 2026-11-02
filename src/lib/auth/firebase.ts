@@ -3,7 +3,7 @@
  * never touch auth don't download the SDK up front.
  */
 import type { Auth, User } from "firebase/auth";
-import type { AuthUser } from "./store";
+import { useAuth, type AuthUser } from "./store";
 import { isDesktopApp, startDesktopSignIn } from "./desktop";
 
 const config = {
@@ -41,9 +41,24 @@ export async function signInWithGoogleIdToken(idToken: string) {
   await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
 }
 
-export async function signOutUser() {
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Signs out behind a short "Signing you out…" screen (components/auth/sign-out-overlay.tsx)
+ * rather than flipping the header straight back to "Sign in". `quiet` skips the screen.
+ */
+export async function signOutUser({ quiet = false } = {}) {
   const [auth, { signOut }] = await Promise.all([getFirebaseAuth(), import("firebase/auth")]);
-  await signOut(auth);
+  const user = useAuth.getState().user;
+  if (quiet || !user) return signOut(auth);
+  useAuth.setState({ signingOut: { user, done: false } });
+  try {
+    await Promise.all([signOut(auth), wait(1400)]);
+    useAuth.setState({ signingOut: { user, done: true } });
+    await wait(1100);
+  } finally {
+    useAuth.setState({ signingOut: null });
+  }
 }
 
 /** The signed-in user's Firebase ID token, for calling our own APIs. */
