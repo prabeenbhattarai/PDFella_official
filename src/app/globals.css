@@ -235,3 +235,11 @@ body {
 .in-view .anim-press { animation: press 2.6s ease-in-out infinite 0.8s; }
 .in-view .anim-burst { animation: burst 2.6s ease-out infinite 0.8s; }
 .anim-draw { stroke-dashoffset: var(--len, 300); stroke-dasharray: var(--len, 300); }
+
+/* Desktop app (desktop/): the site renders as an app shell, a sidebar instead of
+   the marketing header and footer. html[data-app] is set before first paint by
+   appModeScript in src/lib/desktop-app.ts, so there's no flash of the website. */
+html:not([data-app="desktop"]) .app-only { display: none !important; }
+html[data-app="desktop"] .web-only { display: none !important; }
+html[data-app="desktop"] #main { padding-left: var(--app-sidebar, 15rem); min-height: 100dvh; }
+html[data-app="desktop"] #top { min-height: 100dvh; border-bottom: 0; }

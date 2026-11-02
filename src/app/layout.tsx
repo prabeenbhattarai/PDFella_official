@@ -7,6 +7,7 @@ import { PasswordPrompt } from "@/components/ui/password-prompt";
 import { themeInitScript } from "@/components/ui/theme";
 import { PostHogAnalytics } from "@/components/analytics/posthog";
 import { AuthProvider } from "@/components/auth/auth-provider";
+import { appModeScript } from "@/lib/desktop-app";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 // Handwriting fonts for typed signatures. @font-face files are only downloaded when actually used.
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${serif.variable} ${sig1.variable} ${sig2.variable} ${sig3.variable} ${sig4.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <script dangerouslySetInnerHTML={{ __html: appModeScript }} />
       </head>
       <body className="min-h-dvh">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[300] focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:shadow-md">Skip to content</a>

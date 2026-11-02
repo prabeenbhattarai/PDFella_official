@@ -10,6 +10,7 @@ import { LiveDemo } from "@/components/marketing/live-demo";
 import { InView } from "@/components/marketing/in-view";
 import { FileIcon, SquiggleArrow, StepDownload, StepEdit, StepUpload, WhyBigFiles, WhyInstant, WhyPrivate, WhyRealPdf, SecLocal, SecDelete, SecEncrypted, SecNoTraining } from "@/components/marketing/illustrations";
 import { MarqueeClone } from "@/components/marketing/marquee-clone";
+import { AppHome } from "@/components/desktop/app-home";
 import { brand } from "@/lib/brand";
 import { jsonLdScript, siteJsonLd } from "@/lib/seo";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
@@ -104,6 +105,8 @@ export default function LandingPage() {
           { "@type": "HowToStep", position: 3, name: "Download the updated file", text: "Click Save changes, rename the file if you like, and download it." },
         ],
       })} />
+      <AppHome />
+      <div className="web-only contents">
       {/* ───────────── Hero — exactly one screen tall, ticker pinned to the bottom */}
       <section className="relative -mt-16 flex flex-col overflow-hidden pt-16 lg:h-[calc(100svh-1px)] lg:min-h-[704px]">
         <div className="bg-glow pointer-events-none absolute inset-0" aria-hidden />
@@ -351,6 +354,7 @@ export default function LandingPage() {
           </ul>
         </div>
       </section>
+      </div>
     </>
   );
 }

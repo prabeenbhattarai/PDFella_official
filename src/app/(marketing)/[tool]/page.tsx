@@ -103,6 +103,15 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
         <div className="bg-glow pointer-events-none absolute inset-0" aria-hidden />
         <div className="bg-dots pointer-events-none absolute inset-0 opacity-50 [mask-image:radial-gradient(ellipse_at_50%_20%,black,transparent_70%)]" aria-hidden />
         <div className="wrap relative pt-10 pb-16 text-center sm:pt-14">
+          {/* Desktop app: a compact tool header in place of the landing hero. A <p>, so the page keeps one h1. */}
+          <div className="app-only mx-auto -mt-4 mb-6 flex max-w-3xl items-center gap-3.5 text-left sm:-mt-8">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: `var(--cat-${tool.category})` }}><ToolIcon name={tool.icon} className="size-5" /></span>
+            <div className="min-w-0">
+              <p className="text-[22px] font-semibold tracking-tight">{tool.name}</p>
+              <p className="text-[14px] text-ink-3">{tool.blurb} · {tool.engine === "browser" ? "Runs on this computer" : `Secure cloud, deleted within ${JOB_TTL_MINUTES} min`}</p>
+            </div>
+          </div>
+          <div className="web-only contents">
           <nav aria-label="Breadcrumb" className="mb-6 flex items-center justify-center gap-1 text-[13px] font-medium text-ink-3">
             <Link href="/" className="hover:text-ink">Home</Link><ChevronRight className="size-3.5" />
             <Link href={`/#tools-${tool.category}`} className="hover:text-ink">{categories[tool.category].name}</Link><ChevronRight className="size-3.5" />
@@ -116,6 +125,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
             <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> {accountBadge(tool)}</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> No watermark</li>
           </ul>
+          </div>
           <div className="mx-auto mt-10 max-w-3xl rounded-3xl border border-border bg-surface p-4 text-left shadow-[0_30px_60px_-24px_rgb(0_0_0/.25)] sm:p-5">
             <Suspense fallback={<div className="h-60 rounded-2xl border-2 border-dashed border-border-strong bg-surface" />}>
               <ToolWorkspace tool={tool} />
@@ -127,6 +137,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
         </div>
       </section>
 
+      <div className="web-only contents">
       {/* ───────────── Quick answer + key facts (AEO / GEO) */}
       <section className="border-b border-border bg-surface-2/60 py-16">
         <div className="wrap grid gap-8 lg:grid-cols-[1.25fr_1fr] lg:gap-12">
@@ -244,6 +255,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           <a href="#top" className="relative mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-accent-ink px-7 font-semibold text-accent shadow-lg transition hover:opacity-90">Start now <ArrowRight className="size-4" /></a>
         </div>
       </section>
+      </div>
 
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdScript(toolJsonLd(tool, c))} />
     </>

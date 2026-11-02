@@ -7,7 +7,7 @@ import { authEnabled, useAuth } from "@/lib/auth/store";
 import { signOutUser } from "@/lib/auth/firebase";
 
 /** Header control: "Sign in" for visitors, an avatar menu once signed in. */
-export function AccountButton({ compact, signInClassName = "hidden sm:inline-flex" }: { compact?: boolean; signInClassName?: string }) {
+export function AccountButton({ compact, signInClassName = "hidden sm:inline-flex", menuAbove }: { compact?: boolean; signInClassName?: string; menuAbove?: boolean }) {
   const user = useAuth((s) => s.user);
   const ready = useAuth((s) => s.ready);
   const [open, setOpen] = useState(false);
@@ -47,7 +47,7 @@ export function AccountButton({ compact, signInClassName = "hidden sm:inline-fle
           : initial}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-12 z-50 w-64 rounded-xl border border-border bg-surface p-2 shadow-lg">
+        <div role="menu" className={cn("absolute z-50 w-64", menuAbove ? "bottom-12 left-0" : "right-0 top-12", "rounded-xl border border-border bg-surface p-2 shadow-lg")}>
           <div className="px-2.5 py-2">
             {user.name && <p className="truncate text-[14px] font-semibold text-ink">{user.name}</p>}
             {user.email && <p className="truncate text-[13px] text-ink-3">{user.email}</p>}
