@@ -228,7 +228,17 @@ export function AdminDashboard() {
 
       {error && error.status !== 403 && <p role="alert" className="mt-6 rounded-xl bg-danger/10 px-4 py-3 text-[14px] text-danger">{error.message}</p>}
 
-      <h2 className="mt-8 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Visitors · {WINDOWS.find((w) => w.id === win)!.label}</h2>
+      <h2 className="mt-8 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Registered users</h2>
+      {stats && "error" in stats.users ? <div className="mt-3"><Missing text={stats.users.error} /></div> : (
+        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Card icon={UserCheck} label="Total registered" value={u ? fmt(u.total) : "…"} hint="All time" tone="accent" />
+          <Card icon={UserPlus} label="New · last 24 hours" value={u ? fmt(u.new.d1) : "…"} hint={u ? `${fmt(u.total - u.new.d1)} registered before that` : undefined} tone="accent" />
+          <Card icon={UserPlus} label="New · 7 days" value={u ? fmt(u.new.d7) : "…"} hint={u ? `${fmt(u.new.d30)} in 30 days` : undefined} />
+          <Card icon={Users} label={`Active · ${label}`} value={u ? fmt(u.active[win]) : "…"} hint="Signed in or used the site while signed in" />
+        </div>
+      )}
+
+      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Visitors · {WINDOWS.find((w) => w.id === win)!.label}</h2>
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats && "error" in stats.visitors ? <div className="col-span-2 lg:col-span-4"><Missing text={stats.visitors.error} /></div> : (
           <>
@@ -278,15 +288,9 @@ export function AdminDashboard() {
 
       {"error" in stats.people ? <div className="mt-3"><Missing text={stats.people.error} /></div> : <DesktopPeopleTable data={stats.people.data} />}
 
-      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Registered users</h2>
+      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Sign-ups</h2>
       {stats && "error" in stats.users ? <div className="mt-3"><Missing text={stats.users.error} /></div> : (
         <>
-          <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Card icon={UserCheck} label="Total registered" value={u ? fmt(u.total) : "…"} hint="All time" tone="accent" />
-            <Card icon={UserPlus} label={`New · ${WINDOWS.find((w) => w.id === win)!.label}`} value={u ? fmt(u.new[win]) : "…"} />
-            <Card icon={Users} label={`Active · ${WINDOWS.find((w) => w.id === win)!.label}`} value={u ? fmt(u.active[win]) : "…"} hint="Signed in or used the site while signed in" />
-            <Card icon={UserPlus} label="New · 30 days" value={u ? fmt(u.new.d30) : "…"} />
-          </div>
           {u && <div className="mt-3"><SignupChart daily={u.daily} /></div>}
           <UsersTable refreshKey={refreshKey} />
         </>
