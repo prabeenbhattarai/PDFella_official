@@ -8,7 +8,7 @@ import { create } from "zustand";
 export interface AuthUser { uid: string; name: string | null; email: string | null; photo: string | null }
 
 /** What the visitor was trying to do when we asked them to sign in. */
-export type LockedFeature = "editor" | "signature" | "stamp" | "pages" | "fonts";
+export type LockedFeature = "editor" | "signature" | "stamp" | "pages" | "fonts" | "share";
 
 export const authEnabled = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 

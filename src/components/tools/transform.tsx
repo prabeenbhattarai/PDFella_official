@@ -18,7 +18,7 @@ import { Intake, PageThumb, ResultCard, Working, ErrorCard, FileChip, usePdf, pd
 
 type Phase = { k: "idle" } | { k: "working"; label: string; p?: number } | { k: "done"; r: ToolResult } | { k: "error"; m: string };
 
-function useSingle(tool: Tool) {
+export function useSingle(tool: Tool) {
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [phase, setPhase] = useState<Phase>({ k: "idle" });
   const onFiles = useCallback((f: LoadedFile[]) => setFile(f[0]), []);
@@ -43,7 +43,7 @@ function useSingle(tool: Tool) {
     if (!file) return <Intake tool={tool} onFiles={onFiles} />;
     return null;
   };
-  return { file, reset, run, gate };
+  return { file, setFile, reset, run, gate };
 }
 
 function pagesFrom(input: string, count: number): number[] | "all" {

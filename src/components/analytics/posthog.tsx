@@ -19,7 +19,11 @@ import { isDesktopApp } from "@/lib/auth/desktop";
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const KEEP_IN_EDITOR = new Set(["$pageview", "$pageleave"]);
 
+/** A share link's #fragment is the key to someone's file: never let analytics load on that page. */
+const onSharedFilePage = () => location.pathname.startsWith("/s/");
+
 function scrub(event: CaptureResult): CaptureResult | null {
+  if (onSharedFilePage()) return null;
   const editor = location.pathname.startsWith("/editor");
   if (editor && event.event.startsWith("$") && !KEEP_IN_EDITOR.has(event.event)) return null;
   return event;
@@ -27,7 +31,7 @@ function scrub(event: CaptureResult): CaptureResult | null {
 
 export function PostHogAnalytics() {
   useEffect(() => {
-    if (!KEY) return;
+    if (!KEY || onSharedFilePage()) return;
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
     // Loaded after hydration so it never weighs on first paint.

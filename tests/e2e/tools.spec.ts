@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import JSZip from "jszip";
+import { PDFDocument } from "pdf-lib";
 import { fixturePath, downloadBytes, pdfText } from "./helpers";
 
 test("merge two PDFs", async ({ page }) => {
@@ -58,4 +61,101 @@ test("cloud tools explain when processing is unavailable or run when it is", asy
   await page.goto("/ocr-pdf");
   if (!health.processing) await expect(page.getByText("processing service isn't connected")).toBeVisible();
   else await expect(page.getByTestId("dropzone")).toBeVisible();
+});
+
+test("crop by dragging the box, on one page only", async ({ page }) => {
+  await page.goto("/crop-pdf");
+  await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
+  const area = page.getByTestId("crop-page");
+  await expect(area.locator("img")).toBeVisible();
+  const box = (await area.boundingBox())!;
+  const handle = (await page.locator('[data-handle="left"]').boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.25, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  const left = Number(await page.getByLabel("Left margin (%)").inputValue());
+  expect(left).toBeGreaterThan(20);
+  expect(left).toBeLessThan(30);
+
+  await page.getByRole("radio", { name: "This page only" }).click();
+  await page.getByRole("button", { name: "Crop PDF" }).click();
+  const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("tool-download").click()]);
+  const doc = await PDFDocument.load(await downloadBytes(d));
+  expect(doc.getPage(0).getCropBox().width).toBeLessThan(doc.getPage(1).getCropBox().width * 0.8);
+});
+
+test("add and nest bookmarks", async ({ page }) => {
+  await page.goto("/pdf-bookmarks");
+  await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
+  await expect(page.getByText("has no bookmarks yet")).toBeVisible();
+  await page.getByRole("button", { name: "Add bookmark" }).click();
+  await page.getByLabel("Bookmark 1 title").fill("Intro");
+  await page.getByRole("button", { name: "Add bookmark" }).click();
+  await page.getByLabel("Bookmark 2 title").fill("Details");
+  await page.getByLabel("Bookmark 2 page").fill("3");
+  await page.getByRole("button", { name: "Nest bookmark 2" }).click();
+  await page.getByRole("button", { name: "Save bookmarks" }).click();
+  await expect(page.getByTestId("tool-result")).toBeVisible();
+  const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("tool-download").click()]);
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await pdfjs.getDocument({ data: (await downloadBytes(d)).slice(), isEvalSupported: false }).promise;
+  const outline = await doc.getOutline();
+  expect(outline.map((n) => n.title)).toEqual(["Intro"]);
+  expect(outline[0].items.map((n) => n.title)).toEqual(["Details"]);
+  await doc.destroy();
+});
+
+test("edit and remove file details", async ({ page }) => {
+  await page.goto("/pdf-metadata");
+  await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
+  await page.getByLabel("Title").fill("Quarterly report");
+  await page.getByRole("button", { name: "Save details" }).click();
+  const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("tool-download").click()]);
+  expect((await PDFDocument.load(await downloadBytes(d))).getTitle()).toBe("Quarterly report");
+
+  await page.getByRole("button", { name: /Start over/ }).click();
+  await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
+  await page.getByRole("button", { name: "Remove all details" }).click();
+  await expect(page.getByLabel("Title")).toHaveValue("");
+  await page.getByRole("button", { name: "Save details" }).click();
+  const [e] = await Promise.all([page.waitForEvent("download"), page.getByTestId("tool-download").click()]);
+  const clean = await PDFDocument.load(await downloadBytes(e), { updateMetadata: false });
+  expect(clean.getProducer()).toBeUndefined();
+  expect(clean.getCreationDate()).toBeUndefined();
+});
+
+test("save a template, then fill it from a spreadsheet", async ({ page }) => {
+  const form = await PDFDocument.load(readFileSync(fixturePath("form.pdf")));
+  const field = form.getForm().getFields().find((f) => f.constructor.name === "PDFTextField")!.getName();
+
+  await page.goto("/pdf-templates");
+  await page.getByTestId("file-input").setInputFiles(fixturePath("form.pdf"));
+  const row = page.getByTestId("template-row");
+  await expect(row).toContainText("form.pdf");
+  await row.getByRole("button", { name: "From spreadsheet" }).click();
+
+  await page.waitForURL(/fill-pdf-from-spreadsheet/);
+  await page.getByTestId("sheet-input").setInputFiles({ name: "people.csv", mimeType: "text/csv", buffer: Buffer.from(`${field},who\nAsha,first\nBo,second\n`) });
+  await expect(page.getByLabel(`Column for ${field}`)).toHaveValue("0");
+  await page.getByLabel("Name each file from").selectOption({ label: "who" });
+  await page.getByRole("button", { name: "Create 2 PDFs" }).click();
+  await expect(page.getByTestId("tool-result")).toBeVisible();
+  const [d] = await Promise.all([page.waitForEvent("download"), page.getByTestId("tool-download").click()]);
+  const zip = await JSZip.loadAsync(await downloadBytes(d));
+  expect(Object.keys(zip.files).sort()).toEqual(["first.pdf", "second.pdf"]);
+  const filled = await PDFDocument.load(await zip.files["second.pdf"].async("uint8array"));
+  expect(filled.getForm().getTextField(field).getText()).toBe("Bo");
+
+  // The template is still there to use again, and can be deleted.
+  await page.goto("/pdf-templates");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete form.pdf" }).click();
+  await expect(page.getByTestId("template-row")).toHaveCount(0);
+});
+
+test("a PDF with no fields points to the form builder", async ({ page }) => {
+  await page.goto("/fill-pdf-from-spreadsheet");
+  await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
+  await expect(page.getByText("This PDF has no fillable fields")).toBeVisible();
 });

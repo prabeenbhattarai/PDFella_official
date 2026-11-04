@@ -7,13 +7,19 @@
 //! - Receives the sign-in back through `pdfella://auth#…` and hands it to
 //!   /desktop-auth/complete (see src/lib/auth/desktop.ts in the web app).
 //! - Saves downloads to the Downloads folder and reveals them in Finder/Explorer.
+//! - Opens double-clicked PDFs by passing their contents to the page once the site
+//!   has loaded (see src/components/desktop/file-bridge.tsx in the web app). Drops
+//!   are left to the page, which handles them the same way it does in a browser.
 
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use tauri::webview::DownloadEvent;
-use tauri::{AppHandle, Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use base64::Engine;
+use tauri::webview::{DownloadEvent, PageLoadEvent};
+use tauri::{AppHandle, Manager, RunEvent, Url, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_opener::OpenerExt;
 
@@ -42,6 +48,88 @@ fn stays_in_app(url: &Url) -> bool {
         || host.ends_with(".gstatic.com")
         || host.ends_with(".googleusercontent.com")
         || host == "accounts.google.com"
+}
+
+/// PDFs waiting for the site to be ready to receive them.
+#[derive(Default)]
+struct Inbox {
+    paths: Mutex<Vec<PathBuf>>,
+    site_loaded: Mutex<bool>,
+    // One file at a time, so its chunks arrive in order.
+    sending: Arc<Mutex<()>>,
+}
+
+/// The largest file the site's plan limits allow it to open.
+const MAX_FILE_BYTES: u64 = 100 * 1024 * 1024;
+/// A multiple of 3, so each chunk's base64 decodes on its own.
+const CHUNK_BYTES: usize = 384 * 1024;
+
+fn is_pdf(path: &Path) -> bool {
+    path.is_file() && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))
+}
+
+fn is_site(url: &Url) -> bool {
+    matches!(url.scheme(), "https") && matches!(url.host_str(), Some("www.pdfella.com" | "pdfella.com"))
+}
+
+fn queue_files(app: &AppHandle, paths: impl IntoIterator<Item = PathBuf>) {
+    let inbox = app.state::<Inbox>();
+    inbox.paths.lock().unwrap().extend(paths.into_iter().filter(|p| is_pdf(p)));
+    send_files(app);
+}
+
+fn send_files(app: &AppHandle) {
+    let inbox = app.state::<Inbox>();
+    if !*inbox.site_loaded.lock().unwrap() {
+        return;
+    }
+    let paths: Vec<PathBuf> = std::mem::take(&mut *inbox.paths.lock().unwrap());
+    if paths.is_empty() {
+        return;
+    }
+    let (app, sending) = (app.clone(), inbox.sending.clone());
+    std::thread::spawn(move || {
+        let _one_at_a_time = sending.lock().unwrap();
+        let Some(window) = app.get_webview_window("main") else { return };
+        for path in paths {
+            // Never hand a file to anything but PDFella's own pages.
+            if !window.url().is_ok_and(|u| is_site(&u)) {
+                return;
+            }
+            let _ = send_file(&window, &path);
+        }
+    });
+}
+
+fn send_file(window: &tauri::WebviewWindow, path: &Path) -> std::io::Result<()> {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "document.pdf".into());
+    let name = serde_json::to_string(&name).unwrap_or_else(|_| "\"document.pdf\"".into());
+    let start = "window.__pdfellaIncoming=window.__pdfellaIncoming||[];";
+    let finish = "window.__pdfellaFileDone&&window.__pdfellaFileDone();";
+    if std::fs::metadata(path)?.len() > MAX_FILE_BYTES {
+        let _ = window.eval(format!("{start}window.__pdfellaIncoming.push({{name:{name},chunks:[],done:true,tooBig:true}});{finish}"));
+        return Ok(());
+    }
+    let mut file = File::open(path)?;
+    let mut buffer = vec![0u8; CHUNK_BYTES];
+    let _ = window.eval(format!("{start}window.__pdfellaIncoming.push({{name:{name},chunks:[],done:false}});"));
+    loop {
+        let mut filled = 0;
+        while filled < CHUNK_BYTES {
+            let n = file.read(&mut buffer[filled..])?;
+            if n == 0 {
+                break;
+            }
+            filled += n;
+        }
+        if filled == 0 {
+            break;
+        }
+        let chunk = base64::engine::general_purpose::STANDARD.encode(&buffer[..filled]);
+        let _ = window.eval(format!("window.__pdfellaIncoming.at(-1).chunks.push(\"{chunk}\");"));
+    }
+    let _ = window.eval(format!("window.__pdfellaIncoming.at(-1).done=true;{finish}"));
+    Ok(())
 }
 
 /// `pdfella://auth#s=…&iv=…&c=…` → /desktop-auth/complete#… in the main window.
@@ -91,7 +179,8 @@ pub fn run() {
     // One app instance: a second launch (or a pdfella:// link on Windows) focuses the first.
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            queue_files(app, argv.into_iter().skip(1).map(PathBuf::from));
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();
                 let _ = w.set_focus();
@@ -100,13 +189,18 @@ pub fn run() {
     }
 
     builder
+        .manage(Inbox::default())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             #[cfg(any(windows, target_os = "linux"))]
             app.deep_link().register_all()?;
 
+            // Opened by double-clicking a PDF while the app wasn't running (Windows and Linux).
+            queue_files(app.handle(), std::env::args().skip(1).map(PathBuf::from));
+
             let nav_app = app.handle().clone();
+            let load_app = app.handle().clone();
             let dl_app = app.handle().clone();
             let downloads = app.path().download_dir().ok();
             // Where each download is going, by URL: on macOS the Finished event has no path.
@@ -118,6 +212,16 @@ pub fn run() {
                 .min_inner_size(860.0, 580.0)
                 .center()
                 .user_agent(&user_agent())
+                // Lets the page's own upload areas receive dropped files.
+                .disable_drag_drop_handler()
+                .on_page_load(move |_webview, payload| {
+                    let inbox = load_app.state::<Inbox>();
+                    let loaded = matches!(payload.event(), PageLoadEvent::Finished) && is_site(payload.url());
+                    *inbox.site_loaded.lock().unwrap() = loaded;
+                    if loaded {
+                        send_files(&load_app);
+                    }
+                })
                 .on_navigation(move |url| {
                     if stays_in_app(url) {
                         return true;
@@ -165,6 +269,13 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running PDFella");
+        .build(tauri::generate_context!())
+        .expect("error while building PDFella")
+        .run(|_app, _event| {
+            // macOS tells a running (or starting) app about double-clicked files with an event.
+            #[cfg(target_os = "macos")]
+            if let RunEvent::Opened { urls } = _event {
+                queue_files(_app, urls.into_iter().filter_map(|u| u.to_file_path().ok()));
+            }
+        });
 }

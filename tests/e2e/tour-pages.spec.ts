@@ -25,6 +25,34 @@ test("guided tour: welcome, step through with buttons and keys, remembered when 
   expect(await page.evaluate(() => localStorage.getItem("pdfella.tour.v1"))).toBe("1");
 });
 
+test("new visitors get the tour once; after that each new document gets the tabs tip", async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, "webdriver", { get: () => false }));
+  await openInEditor(page);
+  const tour = page.getByRole("dialog");
+  const tip = page.getByTestId("tab-tip");
+  await expect(tour).toContainText("Welcome to the PDFella editor");
+  await expect(tip).toHaveCount(0);
+  await tour.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.locator("[data-editor-tour]")).toHaveCount(0);
+
+  // A returning visitor: no tour, just the tip, and it closes.
+  await openInEditor(page);
+  await expect(tip).toBeVisible();
+  await expect(page.locator("[data-editor-tour]")).toHaveCount(0);
+  await tip.getByRole("button", { name: "Got it" }).click();
+  await expect(tip).toHaveCount(0);
+
+  // No tip once tabs are in use, or when coming back to a tab.
+  await page.getByRole("button", { name: "New tab" }).click();
+  await page.getByRole("button", { name: /Start with a blank page/ }).click();
+  await expect(page.locator("[data-page-index]")).toHaveCount(1);
+  await page.waitForTimeout(1500);
+  await expect(tip).toHaveCount(0);
+  await page.getByRole("tab").nth(0).click();
+  await page.waitForTimeout(1500);
+  await expect(tip).toHaveCount(0);
+});
+
 test("skip closes the tour from any step", async ({ page }) => {
   await openInEditor(page);
   await page.getByRole("button", { name: "More" }).click();

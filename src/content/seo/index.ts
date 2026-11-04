@@ -7,7 +7,8 @@ import { tools } from "@/lib/tools";
 
 export type { ToolContent } from "./types";
 
-const all = [...editContent, ...organiseContent, ...convertContent, ...otherContent];
+const enabled = new Set(tools.map((t) => t.slug));
+const all = [...editContent, ...organiseContent, ...convertContent, ...otherContent].filter((c) => enabled.has(c.slug));
 const bySlug = new Map(all.map((c) => [c.slug, c]));
 
 /** Publication / last-reviewed date shown on guides and used in structured data. */

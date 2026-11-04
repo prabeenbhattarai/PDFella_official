@@ -8,6 +8,8 @@ import { themeInitScript } from "@/components/ui/theme";
 import { PostHogAnalytics } from "@/components/analytics/posthog";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { appModeScript } from "@/lib/desktop-app";
+import { DesktopFileBridge } from "@/components/desktop/file-bridge";
+import { DesktopConnectionGuard } from "@/components/desktop/connection-guard";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 // Handwriting fonts for typed signatures. @font-face files are only downloaded when actually used.
@@ -59,6 +61,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <Toaster />
         <PasswordPrompt />
         <PostHogAnalytics />
+        <DesktopFileBridge />
+        <DesktopConnectionGuard />
         <AuthProvider />
       </body>
     </html>

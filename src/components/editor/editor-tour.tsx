@@ -4,14 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import {
   ArrowLeft, ArrowRight, Download, Eraser, Files, Highlighter, PartyPopper, Signature, SlidersHorizontal, Sparkles,
-  TextCursor, Type, X, type LucideIcon,
+  Layers, TextCursor, Type, X, type LucideIcon,
 } from "lucide-react";
 import { useTouchEditing } from "@/lib/hooks/use-touch-editing";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const DONE_KEY = "pdfella.tour.v1";
 const TIP_KEY = "pdfella.tip.dblclick";
+const DONE_KEY = "pdfella.tour.v1";
 
 type Side = "right" | "left" | "bottom" | "top";
 interface Step {
@@ -34,6 +34,7 @@ const STEPS: Step[] = [
   { icon: Signature, title: "Sign and stamp", target: '[data-tour="tool-signature"]', side: "right", body: () => "Draw, type or upload your signature. Stamps add APPROVED, PAID and more, or make your own with your text and colours." },
   { icon: Files, title: "Organise your pages", target: 'aside[aria-label="Pages"]', side: "right", optional: true, body: () => "Drag pages to reorder them, or rotate, copy and delete. Hover between two pages and click + to insert a blank page, just like slides." },
   { icon: SlidersHorizontal, title: "Style anything you add", target: 'aside[aria-label="Properties"]', side: "left", optional: true, body: () => "Select text, a shape or a stamp to change its font, colour, size and more here." },
+  { icon: Layers, title: "Work in several tabs", target: '[data-tour="tabs"]', side: "bottom", body: () => "Click + to open another document in its own tab. Each one keeps its own edits, and you can copy and paste between them." },
   { icon: Download, title: "Save and download", target: '[data-testid="save"]', side: "bottom", body: () => "When you're done, save to download your edited PDF. Editing happens in your browser, so your file isn't uploaded." },
   { icon: PartyPopper, title: "You're all set!", body: () => "Replay this tour anytime from the ⋯ menu at the top right." },
 ];

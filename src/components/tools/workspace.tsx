@@ -24,6 +24,12 @@ const PdfToWord = dynamic(() => import("./transform").then((m) => m.PdfToWordWor
 const Unlock = dynamic(() => import("./security").then((m) => m.UnlockWorkspace), { loading });
 const Protect = dynamic(() => import("./security").then((m) => m.ProtectWorkspace), { loading });
 const Repair = dynamic(() => import("./security").then((m) => m.RepairWorkspace), { loading });
+const Crop = dynamic(() => import("./document").then((m) => m.CropWorkspace), { loading });
+const Bookmarks = dynamic(() => import("./document").then((m) => m.BookmarksWorkspace), { loading });
+const Details = dynamic(() => import("./document").then((m) => m.DetailsWorkspace), { loading });
+const BulkFill = dynamic(() => import("./forms").then((m) => m.BulkFillWorkspace), { loading });
+const Templates = dynamic(() => import("./forms").then((m) => m.TemplatesWorkspace), { loading });
+const Share = dynamic(() => import("./share").then((m) => m.ShareWorkspace), { loading });
 const Server = dynamic(() => import("./server").then((m) => m.ServerWorkspace), { loading });
 
 export function ToolWorkspace({ tool }: { tool: Tool }) {
@@ -49,6 +55,12 @@ export function ToolWorkspace({ tool }: { tool: Tool }) {
     case "unlock": return <Unlock tool={tool} />;
     case "protect": return <Protect tool={tool} />;
     case "repair": return <Repair tool={tool} />;
+    case "crop": return <Crop tool={tool} />;
+    case "bookmarks": return <Bookmarks tool={tool} />;
+    case "details": return <Details tool={tool} />;
+    case "bulk-fill": return <BulkFill tool={tool} />;
+    case "templates": return <Templates tool={tool} />;
+    case "share": return <Share tool={tool} />;
     case "server": return <Server tool={tool} op={w.op} output={w.output} />;
   }
 }

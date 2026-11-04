@@ -6,6 +6,8 @@ import Link from "next/link";
 import { FilePlus2, History, AlertTriangle, RotateCcw, Upload, LifeBuoy, PenLine, Plus } from "lucide-react";
 import { useEditor, type ToolId } from "@/lib/editor/store";
 import { useSearch } from "@/lib/editor/search";
+import { anyTabDirty, newTab, useTabs } from "@/lib/editor/tabs";
+import { setFileConsumer } from "@/lib/desktop-files";
 import { openInEditor, newBlankDocument, writeAutosave, readAutosaveMeta, restoreAutosave, clearAutosave, replaceSourceBytes, type InputFile } from "@/lib/editor/load";
 import { PasswordRequiredError, openPdf } from "@/lib/pdf/pdfjs";
 import { PasswordCancelledError } from "@/lib/pdf/unlock";
@@ -19,7 +21,11 @@ import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/ui/logo";
 import { LogoLoader } from "@/components/ui/logo-loader";
 import { toast } from "@/components/ui/toast";
+import { Dialog } from "@/components/ui/dialog";
+import { ShareForm } from "@/components/share/share-form";
+import { BookmarksDialog, CropDialog } from "./document-dialogs";
 import { TopBar } from "./top-bar";
+import { TabBar } from "./tab-bar";
 import { ToolRail } from "./tool-rail";
 import { Thumbnails } from "./thumbnails";
 import { DocumentCanvas } from "./canvas";
@@ -37,6 +43,8 @@ import { requireAuth } from "@/lib/auth/store";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
+const shareCurrent = async () => ({ name: useEditor.getState().docName, bytes: await buildPdf() });
+
 export function EditorApp() {
   const params = useSearchParams();
   const status = useEditor((s) => s.status);
@@ -48,9 +56,18 @@ export function EditorApp() {
   const signatures = useEditor((s) => s.signatures);
   const assets = useEditor((s) => s.assets);
   const searchOpen = useSearch((s) => s.open);
+  const activeTab = useTabs((s) => s.active);
+  const docKey = useEditor((s) => s.docKey);
+  const toured = useRef(new Set<string>());
+  const [tabTip, setTabTip] = useState(false);
+  const closeTabTip = useCallback(() => setTabTip(false), []);
+  const tabCount = useTabs((s) => s.tabs.length);
   const [restore, setRestore] = useState<{ docName: string; savedAt: number; pages: number } | null>(null);
   const [sigOpen, setSigOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [showThumbs, setShowThumbs] = useState(true);
@@ -108,16 +125,27 @@ export function EditorApp() {
     })();
   }, [open]);
 
+  // Files double-clicked or dropped in the desktop app: each opens in its own tab, one at a time.
+  useEffect(() => setFileConsumer((files) => {
+    void (async () => {
+      for (const f of files) {
+        while (useEditor.getState().status === "loading") await new Promise((r) => setTimeout(r, 200));
+        if (useEditor.getState().status === "ready") newTab();
+        await open([f]);
+      }
+    })();
+  }), [open]);
+
   // Auto-save locally (debounced) and warn before leaving with unsaved changes.
   useEffect(() => {
     let t: ReturnType<typeof setTimeout>;
     const unsub = useEditor.subscribe((s, prev) => {
-      if (s.pages !== prev.pages || s.objects !== prev.objects || s.docName !== prev.docName) {
+      if (s.pages !== prev.pages || s.objects !== prev.objects || s.docName !== prev.docName || s.bookmarks !== prev.bookmarks) {
         clearTimeout(t);
         t = setTimeout(() => writeAutosave(), 1200);
       }
     });
-    const warn = (e: BeforeUnloadEvent) => { if (useEditor.getState().dirty) { e.preventDefault(); e.returnValue = ""; } };
+    const warn = (e: BeforeUnloadEvent) => { if (anyTabDirty()) { e.preventDefault(); e.returnValue = ""; } };
     window.addEventListener("beforeunload", warn);
     return () => { unsub(); clearTimeout(t); window.removeEventListener("beforeunload", warn); };
   }, []);
@@ -177,12 +205,20 @@ export function EditorApp() {
     (window as unknown as Record<string, unknown>).__pdfella = { store: useEditor, buildPdf, openPdf, getEditedPage, textRemovals };
   }, []);
 
-  // First visit: offer the guided tour once a document is open (never under test automation).
+  // New visitors get the full tour. After that, each new document gets a short tip about tabs,
+  // unless tabs are already in use. Neither shows when returning to a tab or under test automation.
   useEffect(() => {
-    if (status !== "ready" || tourSeen() || navigator.webdriver) return;
-    const t = setTimeout(() => setTourOpen(true), 700);
+    if (status !== "ready" || !docKey || navigator.webdriver) return;
+    const t = setTimeout(() => {
+      if (toured.current.has(docKey)) return;
+      toured.current.add(docKey);
+      // Don't cover a dialog the visitor is already using, such as a signature link.
+      if (document.querySelector('[role="dialog"]')) return;
+      if (!tourSeen()) setTourOpen(true);
+      else if (useTabs.getState().tabs.length === 1) setTabTip(true);
+    }, 700);
     return () => clearTimeout(t);
-  }, [status]);
+  }, [status, docKey]);
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -247,6 +283,7 @@ export function EditorApp() {
     return (
       <div className="flex min-h-dvh flex-col bg-bg">
         <header className="flex h-14 items-center border-b border-border bg-surface px-4"><Link href="/" aria-label="Home"><Logo /></Link></header>
+        {tabCount > 1 && <TabBar />}
         <main id="main" className="flex flex-1 items-center justify-center p-4">
           {status === "error" ? (
             <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 text-center shadow-sm" role="alert">
@@ -265,14 +302,14 @@ export function EditorApp() {
                 <h1 className="font-display text-4xl tracking-tight">Open a document to start editing</h1>
                 <p className="mt-2 text-ink-3">PDFs and images stay in your browser. Word, Excel and PowerPoint files are converted to PDF on our secure server first.</p>
               </div>
-              {restore && (
+              {restore && tabCount === 1 && (
                 <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft p-4" role="status">
                   <History className="size-5 text-accent" />
                   <div className="min-w-0 flex-1 text-sm">
                     <p className="font-medium">Restore your previous document?</p>
                     <p className="truncate text-ink-3">{restore.docName} · {restore.pages} page{restore.pages === 1 ? "" : "s"} · {new Date(restore.savedAt).toLocaleString()}</p>
                   </div>
-                  <Button size="sm" onClick={async () => { setRestore(null); await restoreAutosave(); applyQuery(); }}>Restore</Button>
+                  <Button size="sm" onClick={async () => { setRestore(null); await restoreAutosave(); const k = useEditor.getState().docKey; if (k) toured.current.add(k); applyQuery(); }}>Restore</Button>
                   <Button size="sm" variant="ghost" onClick={async () => { setRestore(null); await clearAutosave(); }}>Discard</Button>
                 </div>
               )}
@@ -292,7 +329,11 @@ export function EditorApp() {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-bg" data-testid="editor">
+      <TabBar tip={tabTip} onTipClose={closeTabTip} />
       <TopBar
+        onShare={() => setShareOpen(true)}
+        onCrop={() => setCropOpen(true)}
+        onBookmarks={() => setBookmarksOpen(true)}
         onSave={() => setSaveOpen(true)}
         onNew={startNew}
         onOpen={() => openInput.current?.click()}
@@ -304,10 +345,10 @@ export function EditorApp() {
         togglePanel={() => setShowPanel((v) => !v)}
       />
       <div className="flex min-h-0 flex-1">
-        {showThumbs && <aside className="hidden w-[168px] shrink-0 border-r border-border bg-surface md:block" aria-label="Pages">{<Thumbnails />}</aside>}
+        {showThumbs && <aside className="hidden w-[168px] shrink-0 border-r border-border bg-surface md:block" aria-label="Pages"><Thumbnails key={activeTab} /></aside>}
         <nav className="hidden w-[76px] shrink-0 flex-col items-center overflow-y-auto border-r border-border bg-surface md:flex" aria-label="Tools"><ToolRail onPick={pickTool} orientation="vertical" /></nav>
         <main id="main" className="relative min-w-0 flex-1">
-          {pages > 0 && <DocumentCanvas />}
+          {pages > 0 && <DocumentCanvas key={activeTab} />}
           {searchOpen && <SearchBar onOcr={runOcr} />}
           <ToolHint />
           <PendingHint />
@@ -333,7 +374,7 @@ export function EditorApp() {
       </div>
       <div className={cn("fixed inset-0 z-50 md:hidden", mobileThumbs ? "block" : "hidden")}>
         <div className="absolute inset-0 bg-black/40" onClick={() => setMobileThumbs(false)} />
-        <div className="absolute inset-y-0 left-0 w-[200px] bg-surface shadow-lg" onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"]')) setMobileThumbs(false); }}><Thumbnails /></div>
+        <div className="absolute inset-y-0 left-0 w-[200px] bg-surface shadow-lg" onClick={(e) => { if ((e.target as HTMLElement).closest('[role="option"]')) setMobileThumbs(false); }}><Thumbnails key={activeTab} /></div>
       </div>
 
       <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(e) => { onImage(e.target.files?.[0]); e.target.value = ""; }} aria-label="Choose image" />
@@ -341,7 +382,8 @@ export function EditorApp() {
         const f = e.target.files?.[0];
         e.target.value = "";
         if (!f) return;
-        if (useEditor.getState().dirty && !confirm("Open another file? Unsaved changes will be lost.")) return;
+        // Another file opens beside this one, in its own tab.
+        if (useEditor.getState().status === "ready") newTab();
         open([{ name: f.name, type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }]);
       }} aria-label="Open file" />
 
@@ -350,6 +392,11 @@ export function EditorApp() {
         useEditor.getState().addSignature(asset);
       }} />
       <SaveDialog open={saveOpen} onClose={() => setSaveOpen(false)} onNew={startNew} />
+      <Dialog open={shareOpen} onClose={() => setShareOpen(false)} size="lg" title="Share a link" description="Your edits are included. The link holds a copy of the document as it is now.">
+        <ShareForm key={activeTab} getFile={shareCurrent} />
+      </Dialog>
+      <CropDialog open={cropOpen} onClose={() => setCropOpen(false)} />
+      <BookmarksDialog open={bookmarksOpen} onClose={() => setBookmarksOpen(false)} />
       <ShortcutsDialog open={keysOpen} onClose={() => setKeysOpen(false)} />
       <EditorTour open={tourOpen} onClose={() => { setTourOpen(false); window.dispatchEvent(new Event("pdfella:tip-seen")); }} />
     </div>

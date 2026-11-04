@@ -36,7 +36,7 @@ export default async function OgImage({ params }: { params: Promise<{ tool: stri
           <div style={{ fontSize: 32, color: "#353942", lineHeight: 1.35, maxWidth: 980 }}>{c.subtitle}</div>
         </div>
         <div style={{ display: "flex", gap: 30, fontSize: 26, fontWeight: 600, color: "#0c7a64" }}>
-          {["Free", accountNeed(t) === "required" ? "One-click sign-in" : "No sign-up", "No watermark", t.engine === "browser" ? "Runs in your browser" : "Files auto-deleted"].map((x) => (
+          {["Free", accountNeed(t) === "required" ? "One-click sign-in" : "No sign-up", "No watermark", t.engine === "browser" ? "Runs in your browser" : t.storage ? "End-to-end encrypted" : "Files auto-deleted"].map((x) => (
             <div key={x} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 14, height: 14, borderRadius: 999, background: "#0c7a64", display: "flex" }} />{x}
             </div>

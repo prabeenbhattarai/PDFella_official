@@ -20,6 +20,15 @@
       "nsis"
     ],
     "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["pdf"],
+        "name": "PDF Document",
+        "description": "PDF document",
+        "mimeType": "application/pdf",
+        "role": "Editor"
+      }
+    ],
     "shortDescription": "Edit, convert and sign PDFs",
     "longDescription": "PDFella on your desktop: edit PDF text, sign, merge, split, compress and convert documents. Needs an internet connection.",
     "copyright": "\u00a9 PDFella",

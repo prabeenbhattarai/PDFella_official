@@ -2,13 +2,13 @@ import type { Metadata } from "next";
 import { Prose } from "@/components/marketing/prose";
 import { brand } from "@/lib/brand";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
-import { tools } from "@/lib/tools";
+import { shareEnabled, tools } from "@/lib/tools";
 
 export const metadata: Metadata = { title: "Privacy Policy", description: `How ${brand.name} handles your files and data: what stays in your browser, what is uploaded for conversion, and what we never collect.`, alternates: { canonical: "/privacy" } };
 
 export default function PrivacyPage() {
   const local = tools.filter((t) => t.engine === "browser").map((t) => t.name);
-  const cloud = tools.filter((t) => t.engine === "server").map((t) => t.name);
+  const cloud = tools.filter((t) => t.engine === "server" && !t.storage).map((t) => t.name);
   return (
     <Prose title="Privacy" updated="October 2026">
       <p>This page explains, in plain language, what happens to the documents you work on with {brand.name}. We only make claims here that our software actually enforces.</p>
@@ -27,6 +27,18 @@ export default function PrivacyPage() {
         <li>Input and output files are deleted as soon as you download the result. If you don&apos;t, a scheduled cleanup deletes them after <strong>{JOB_TTL_MINUTES} minutes</strong>, and a storage lifecycle rule permanently removes anything older than 24 hours as a backstop.</li>
         <li>Job records contain only technical metadata (tool, file size, status, timestamps), never file names or contents, and they expire automatically.</li>
       </ul>
+
+      {shareEnabled && (
+        <>
+          <h2 id="share-links">Share links</h2>
+          <ul>
+            <li>When you create a share link, your file and its name are encrypted on your device before upload. The key is only in the link&apos;s final part (after the #), which browsers don&apos;t send to servers, so we can&apos;t read your file. Analytics doesn&apos;t run on the page that opens a share link.</li>
+            <li>We store the encrypted file, its size, the dates it was created and expires, your account ID and email address, and any reports made about the link.</li>
+            <li>Links expire after the time you choose, up to 30 days. Expired files are deleted by a daily cleanup, and you can delete a link at any time.</li>
+            <li>Encrypted files are stored with Google Firebase. Because we can&apos;t read them, we can&apos;t scan them for malware. If a link is reported, we may delete it and review the account that created it.</li>
+          </ul>
+        </>
+      )}
 
       <h2>What we never do</h2>
       <ul>

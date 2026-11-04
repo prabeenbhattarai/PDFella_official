@@ -19,6 +19,7 @@ const COPY: Record<LockedFeature, { title: string; body: string }> = {
   signature: { title: "Sign in to add your signature", body: "Draw, type or upload a signature and place it anywhere. Free with a one-click sign-in." },
   stamp: { title: "Sign in to use stamps", body: "Approved, Draft, Confidential and your own custom stamps. Free with a one-click sign-in." },
   pages: { title: "Sign in to add pages", body: "Insert blank pages, other PDFs and images anywhere in your document. Free with a one-click sign-in." },
+  share: { title: "Sign in to share your PDF", body: "Create encrypted links you can send to anyone, and delete them whenever you like. Free with a one-click sign-in." },
   fonts: { title: "Sign in to style your text", body: "Every font, plus bold, italic and underline. Free with a one-click sign-in." },
 };
 

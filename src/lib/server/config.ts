@@ -45,3 +45,14 @@ export function requireSecret(): string {
   if (!config.secret) throw new Error("APP_SECRET must be set in production");
   return config.secret;
 }
+
+/**
+ * Share links keep files for days, so they have their own settings, separate from
+ * the short-lived processing files. They stay off in production until configured.
+ *   SHARE_BACKEND = firebase | local | off
+ *   SHARE_BUCKET  = the Firebase Storage bucket (with SHARE_BACKEND=firebase)
+ */
+export function shareConfig(): { backend: "firebase" | "local" | "off"; bucket?: string } {
+  const backend = process.env.SHARE_BACKEND ?? (process.env.NODE_ENV === "production" ? "off" : "local");
+  return { backend: backend === "firebase" || backend === "local" ? backend : "off", bucket: process.env.SHARE_BUCKET };
+}

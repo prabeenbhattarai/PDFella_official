@@ -28,6 +28,9 @@ export interface ToolStyle {
   fieldType: "text" | "checkbox" | "radio" | "dropdown" | "date" | "signature";
 }
 
+/** A bookmark points at a page by ID, so it follows the page when pages are reordered. */
+export interface EditorBookmark { title: string; pageId: string | null; level: number; top?: number | null; url?: string }
+
 export type DocStatus = "empty" | "loading" | "ready" | "saving" | "error";
 
 const HISTORY_LIMIT = 100;
@@ -36,10 +39,14 @@ interface EditorState {
   status: DocStatus;
   error: string | null;
   docName: string;
+  /** Bookmarks the user has edited here, or null to keep the document's own. */
+  bookmarks: EditorBookmark[] | null;
+  /** New for every document opened, so a tab switch can be told apart from a new document. */
+  docKey: string | null;
   sources: Record<string, SourceDoc>;
   pages: PageRef[];
   objects: Record<string, EditorObject[]>;
-  /** Image data URLs, kept out of history snapshots (immutable once added). */
+  /** Image data URLs, kept out of history snapshots (immutable once added). Shared by all tabs, so signatures and pasted images work in any of them. */
   assets: Record<string, string>;
   /** Signatures created this session (asset ids). */
   signatures: string[];
@@ -73,6 +80,9 @@ interface EditorState {
   initDocument(name: string, sources: SourceDoc[], pages: PageRef[], objects?: Record<string, EditorObject[]>, assets?: Record<string, string>): void;
   setDocName(name: string): void;
   markSaved(): void;
+  setBookmarks(bookmarks: EditorBookmark[] | null): void;
+  /** Swap in a rebuilt copy of the whole document (e.g. after cropping). Undo brings the old one back. */
+  replaceDocument(source: SourceDoc, pages: PageRef[]): void;
 
   // ── history
   commit(): void;
@@ -168,6 +178,8 @@ export const useEditor = create<EditorState>()((set, get) => ({
   status: "empty",
   error: null,
   docName: "document.pdf",
+  docKey: null,
+  bookmarks: null,
   sources: {},
   pages: [],
   objects: {},
@@ -183,15 +195,17 @@ export const useEditor = create<EditorState>()((set, get) => ({
   ...initialUi,
 
   reset: () =>
-    set({ status: "empty", error: null, docName: "document.pdf", sources: {}, pages: [], objects: {}, assets: {}, formValues: {}, past: [], future: [], dirty: false, ...initialUi }),
+    set({ status: "empty", error: null, docName: "document.pdf", docKey: null, bookmarks: null, sources: {}, pages: [], objects: {}, formValues: {}, past: [], future: [], dirty: false, ...initialUi }),
   setStatus: (status, error = null) => set({ status, error }),
   initDocument: (name, sources, pages, objects = {}, assets = {}) =>
     set({
       docName: name,
+      docKey: uid("d"),
+      bookmarks: null,
       sources: Object.fromEntries(sources.map((s) => [s.id, s])),
       pages,
       objects,
-      assets,
+      assets: { ...get().assets, ...assets },
       formValues: {},
       past: [],
       future: [],
@@ -203,6 +217,20 @@ export const useEditor = create<EditorState>()((set, get) => ({
     }),
   setDocName: (docName) => set({ docName }),
   markSaved: () => set({ dirty: false }),
+  setBookmarks: (bookmarks) => set({ bookmarks, dirty: true }),
+  replaceDocument: (source, pages) => {
+    get().commit();
+    set((s) => ({
+      sources: { ...s.sources, [source.id]: source },
+      pages,
+      objects: {},
+      bookmarks: null,
+      selection: [],
+      editingId: null,
+      selectedPages: pages[s.currentPage] ? [pages[s.currentPage].id] : [],
+      currentPage: Math.min(s.currentPage, pages.length - 1),
+    }));
+  },
 
   commit: () => {
     const { pages, objects, past } = get();

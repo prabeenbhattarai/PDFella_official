@@ -26,6 +26,13 @@ export async function disposeAll() {
   await Promise.allSettled(all.map(async (p) => (await p).destroy()));
 }
 
+/** Close only these sources (other editor tabs keep theirs). */
+export async function disposeSources(ids: string[]) {
+  const gone = ids.map((id) => docs.get(id)).filter(Boolean) as Promise<PDFDocumentProxy>[];
+  ids.forEach((id) => docs.delete(id));
+  await Promise.allSettled(gone.map(async (p) => (await p).destroy()));
+}
+
 export async function getPage(ref: PageRef): Promise<PDFPageProxy | null> {
   if (!ref.sourceId) return null;
   return (await getDoc(ref.sourceId)).getPage(ref.sourceIndex + 1);

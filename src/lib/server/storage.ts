@@ -1,7 +1,7 @@
 import "server-only";
 import { mkdir, readFile, rm, stat, writeFile, open } from "node:fs/promises";
 import path from "node:path";
-import { config } from "./config";
+import { config, shareConfig } from "./config";
 import { signBlob } from "./tokens";
 
 /**
@@ -21,10 +21,11 @@ export interface ObjectStore {
 // ───────────────────────── Google Cloud Storage / Firebase Storage
 
 class GcsStore implements ObjectStore {
+  constructor(private readonly bucketName = config.bucket) {}
   private async bucket() {
     const { getStorage } = await import("firebase-admin/storage");
     const { adminApp } = await import("./firebase");
-    return getStorage(adminApp()).bucket(config.bucket);
+    return getStorage(adminApp()).bucket(this.bucketName);
   }
   async signedUploadUrl(key: string, contentType: string, maxBytes: number) {
     const [url] = await (await this.bucket()).file(key).getSignedUrl({
@@ -105,6 +106,13 @@ let store: ObjectStore | null = null;
 export function getStore(): ObjectStore {
   store ??= config.storage === "gcs" ? new GcsStore() : new LocalStore();
   return store;
+}
+let shareObjects: ObjectStore | null = null;
+/** Where share links keep their encrypted files. */
+export function getShareObjects(): ObjectStore {
+  const { backend, bucket } = shareConfig();
+  shareObjects ??= backend === "firebase" ? new GcsStore(bucket) : new LocalStore();
+  return shareObjects;
 }
 export function getLocalStore(): LocalStore | null {
   const s = getStore();

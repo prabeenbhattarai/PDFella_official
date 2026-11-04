@@ -2,12 +2,13 @@
 
 import { PDFDocument } from "pdf-lib";
 import { uid } from "../utils";
-import { registerSource, looksScanned, disposeAll } from "../pdf/docCache";
+import { registerSource, looksScanned, disposeSources } from "../pdf/docCache";
 import { imagesToPdf } from "../pdf/ops";
 import { sniffBytes, IMAGE_KINDS, OFFICE_KINDS } from "../security/filetype";
 import { runJob } from "../processing/client";
 import type { EditorObject, PageRef, SourceDoc } from "./model";
-import { useEditor } from "./store";
+import { useEditor, type EditorBookmark } from "./store";
+import { otherTabSources } from "./tabs";
 import { local } from "../storage/local";
 import { ensureUnlocked } from "../pdf/unlock";
 
@@ -52,11 +53,17 @@ export async function createSource(name: string, bytes: Uint8Array, password?: s
   return { source: { id, name, bytes, pageCount: doc.numPages, scanned, hasForm }, pages };
 }
 
+/** Close the open tab's PDFs before it gets a new document; sources other tabs share stay open. */
+async function disposeOpenDocument() {
+  const keep = otherTabSources();
+  await disposeSources(Object.keys(useEditor.getState().sources).filter((id) => !keep.has(id)));
+}
+
 /** Open files as a brand-new editor document (the first file names the document). */
 export async function openInEditor(files: InputFile[]) {
   const store = useEditor.getState();
   store.setStatus("loading");
-  await disposeAll();
+  await disposeOpenDocument();
   const sources: SourceDoc[] = [];
   const pages: PageRef[] = [];
   for (const f of files) {
@@ -77,7 +84,7 @@ export async function insertFile(file: InputFile, at?: number) {
 
 /** Start a new empty document with one blank A4 page. */
 export async function newBlankDocument() {
-  await disposeAll();
+  await disposeOpenDocument();
   const doc = await PDFDocument.create();
   doc.addPage([595.28, 841.89]);
   const bytes = await doc.save();
@@ -97,6 +104,7 @@ interface AutosaveRecord {
   pages: PageRef[];
   objects: Record<string, EditorObject[]>;
   assets: Record<string, string>;
+  bookmarks?: EditorBookmark[] | null;
 }
 
 export async function writeAutosave() {
@@ -110,6 +118,7 @@ export async function writeAutosave() {
     pages: s.pages,
     objects: s.objects,
     assets: s.assets,
+    bookmarks: s.bookmarks,
   };
   await local.set(AUTOSAVE_KEY, rec);
 }
@@ -130,13 +139,14 @@ export async function restoreAutosave(): Promise<boolean> {
   if (!rec) return false;
   const store = useEditor.getState();
   store.setStatus("loading");
-  await disposeAll();
+  await disposeOpenDocument();
   const sources: SourceDoc[] = [];
   for (const s of rec.sources) {
     await registerSource(s.id, s.bytes);
     sources.push({ ...s });
   }
   store.initDocument(rec.docName, sources, rec.pages, rec.objects, rec.assets);
+  if (rec.bookmarks) useEditor.setState({ bookmarks: rec.bookmarks });
   return true;
 }
 

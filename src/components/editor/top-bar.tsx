@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   Undo2, Redo2, ZoomIn, ZoomOut, Search, Printer, Maximize, Download, Save, MoreHorizontal, Keyboard, FilePlus2, Sparkles,
-  PanelLeft, PanelRight, MoveHorizontal, Scan, FolderOpen, Check,
+  PanelLeft, PanelRight, MoveHorizontal, Scan, FolderOpen, Check, BookmarkPlus, Link2, Crop, Bookmark,
 } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import { useSearch } from "@/lib/editor/search";
@@ -12,10 +12,14 @@ import { LogoMark } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme";
 import { cn, stripExtension } from "@/lib/utils";
-import { downloadNow, printDocument } from "./actions";
+import { downloadNow, printDocument, saveAsTemplate } from "./actions";
 import { AccountButton } from "@/components/auth/account-button";
+import { shareEnabled } from "@/lib/tools";
 
 interface Props {
+  onShare: () => void;
+  onCrop: () => void;
+  onBookmarks: () => void;
   onSave: () => void;
   onNew: () => void;
   onOpen: () => void;
@@ -27,7 +31,7 @@ interface Props {
   togglePanel: () => void;
 }
 
-export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs, showPanel, toggleThumbs, togglePanel }: Props) {
+export function TopBar({ onShare, onCrop, onBookmarks, onSave, onNew, onOpen, onShortcuts, onTour, showThumbs, showPanel, toggleThumbs, togglePanel }: Props) {
   const docName = useEditor((s) => s.docName);
   const zoom = useEditor((s) => s.zoom);
   const fit = useEditor((s) => s.fit);
@@ -82,6 +86,8 @@ export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs,
       </div>
 
       <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
+        <Button variant="ghost" size="icon" aria-label="Crop pages" title="Crop pages" onClick={onCrop} className="hidden sm:inline-flex" data-tour="crop"><Crop /></Button>
+        <Button variant="ghost" size="icon" aria-label="Edit bookmarks" title="Edit bookmarks" onClick={onBookmarks} className="hidden sm:inline-flex"><Bookmark /></Button>
         <Button variant="ghost" size="icon" aria-label="Search" title="Search (Ctrl+F)" onClick={() => useSearch.getState().setOpen(true)}><Search /></Button>
         <Button variant="ghost" size="icon" aria-label="Print" title="Print (Ctrl+P)" onClick={printDocument} className="hidden sm:inline-flex"><Printer /></Button>
         <div className="relative" ref={menuRef}>
@@ -92,6 +98,10 @@ export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs,
                 { icon: FolderOpen, label: "Open another file", on: onOpen },
                 { icon: FilePlus2, label: "New document", on: onNew },
                 { icon: Download, label: "Download without dialog", on: downloadNow },
+                ...(shareEnabled ? [{ icon: Link2, label: "Share a link", on: onShare }] : []),
+                { icon: Crop, label: "Crop pages", on: onCrop },
+                { icon: Bookmark, label: "Edit bookmarks", on: onBookmarks },
+                { icon: BookmarkPlus, label: "Save as template", on: saveAsTemplate },
                 { icon: Printer, label: "Print", on: printDocument },
                 { icon: Maximize, label: "Full screen", on: () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.()) },
                 { icon: PanelRight, label: showPanel ? "Hide properties" : "Show properties", on: togglePanel },
@@ -104,6 +114,7 @@ export function TopBar({ onSave, onNew, onOpen, onShortcuts, onTour, showThumbs,
             </div>
           )}
         </div>
+        {shareEnabled && <Button variant="outline" size="md" onClick={onShare} className="ml-1 hidden md:inline-flex" data-testid="share"><Link2 /> Share</Button>}
         <Button variant="outline" size="md" onClick={downloadNow} className="ml-1 hidden md:inline-flex" aria-label="Download"><Download /> Download</Button>
         <Button size="md" onClick={onSave} className="ml-1" data-testid="save">{dirty ? <Save /> : <Check />} <span className="hidden sm:inline">Save changes</span><span className="sm:hidden">Save</span></Button>
         <div className="ml-1"><AccountButton compact /></div>

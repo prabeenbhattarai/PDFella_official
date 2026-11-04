@@ -1,5 +1,6 @@
 import { getJobs } from "@/lib/server/jobs";
 import { getStore } from "@/lib/server/storage";
+import { sweepExpiredShares } from "@/lib/server/shares";
 import { config } from "@/lib/server/config";
 import { json, fail } from "@/lib/server/http";
 
@@ -26,7 +27,11 @@ async function sweep(req: Request) {
       console.error("[cleanup] failed for job", j.id, (e as Error).message);
     }
   }
-  return json({ deleted });
+  const shares = await sweepExpiredShares().catch((e) => {
+    console.error("[cleanup] share sweep failed", (e as Error).message);
+    return 0;
+  });
+  return json({ deleted, shares });
 }
 
 export const POST = sweep;

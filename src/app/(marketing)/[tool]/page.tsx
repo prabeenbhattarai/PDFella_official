@@ -108,7 +108,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: `var(--cat-${tool.category})` }}><ToolIcon name={tool.icon} className="size-5" /></span>
             <div className="min-w-0">
               <p className="text-[22px] font-semibold tracking-tight">{tool.name}</p>
-              <p className="text-[14px] text-ink-3">{tool.blurb} · {tool.engine === "browser" ? "Runs on this computer" : `Secure cloud, deleted within ${JOB_TTL_MINUTES} min`}</p>
+              <p className="text-[14px] text-ink-3">{tool.blurb} · {tool.storage ?? (tool.engine === "browser" ? "Runs on this computer" : `Secure cloud, deleted within ${JOB_TTL_MINUTES} min`)}</p>
             </div>
           </div>
           <div className="web-only contents">
@@ -121,7 +121,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           <h1 className="font-display text-5xl leading-[1.02] tracking-tight sm:text-7xl">{c.h1}</h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-2">{c.subtitle}</p>
           <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-ink-2">
-            <li className="flex items-center gap-1.5">{tool.engine === "browser" ? <><Laptop className="size-4 text-accent" /> Runs in your browser</> : <><Cloud className="size-4 text-accent" /> Secure cloud · deleted within {JOB_TTL_MINUTES} min</>}</li>
+            <li className="flex items-center gap-1.5">{tool.engine === "browser" ? <><Laptop className="size-4 text-accent" /> Runs in your browser</> : <><Cloud className="size-4 text-accent" /> {tool.storage ?? `Secure cloud · deleted within ${JOB_TTL_MINUTES} min`}</>}</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> {accountBadge(tool)}</li>
             <li className="flex items-center gap-1.5"><Check className="size-4 text-accent" /> No watermark</li>
           </ul>

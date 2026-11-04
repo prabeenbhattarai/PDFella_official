@@ -6,6 +6,10 @@ import { exportDocument, EncryptedPdfError, type RedactionRegion } from "@/lib/p
 import { isProcessingAvailable, runJob } from "@/lib/processing/client";
 import { downloadBlob, sanitizeFileName } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { saveTemplate } from "@/lib/templates";
+import { cropPdf, readBookmarks, writeBookmarks, type Bookmark, type CropMargins } from "@/lib/pdf/document-info";
+import { getDoc } from "@/lib/pdf/docCache";
+import { createSource } from "@/lib/editor/load";
 import { toast } from "@/components/ui/toast";
 
 async function serverRedact(pdf: Uint8Array, regions: RedactionRegion[]): Promise<Uint8Array | null> {
@@ -21,15 +25,60 @@ async function serverRedact(pdf: Uint8Array, regions: RedactionRegion[]): Promis
  */
 export async function buildPdf(opts: { flattenForms?: boolean; serverRedaction?: boolean; onProgress?: (l: string) => void } = {}): Promise<Uint8Array> {
   const s = useEditor.getState();
-  return exportDocument(
+  const bytes = await exportDocument(
     { docName: s.docName, sources: s.sources, pages: s.pages, objects: s.objects, assets: s.assets, formValues: s.formValues },
     { flattenForms: opts.flattenForms, serverRedact: opts.serverRedaction ? serverRedact : undefined, onProgress: opts.onProgress },
   );
+  if (!s.bookmarks) return bytes;
+  return writeBookmarks(bytes, await currentBookmarks());
+}
+
+/** The editor's bookmarks, as a list that points at pages by position. */
+export async function currentBookmarks(): Promise<Bookmark[]> {
+  const s = useEditor.getState();
+  if (s.bookmarks) {
+    return s.bookmarks.flatMap(({ pageId, ...b }) => {
+      const page = s.pages.findIndex((p) => p.id === pageId);
+      return page >= 0 || b.url ? [{ ...b, page: Math.max(page, 0) }] : [];
+    });
+  }
+  // Nothing edited yet: start from the outlines of the document's files, in page order.
+  const out: Bookmark[] = [];
+  for (const sourceId of new Set(s.pages.map((p) => p.sourceId).filter(Boolean) as string[])) {
+    for (const b of await readBookmarks(await getDoc(sourceId)).catch(() => [] as Bookmark[])) {
+      const page = s.pages.findIndex((p) => p.sourceId === sourceId && p.sourceIndex === b.page);
+      if (page >= 0 || b.url) out.push({ ...b, page: Math.max(page, 0) });
+    }
+  }
+  return out;
+}
+
+export function saveBookmarks(list: Bookmark[]) {
+  const s = useEditor.getState();
+  s.setBookmarks(list.map(({ page, ...b }) => ({ ...b, pageId: b.url ? null : s.pages[page]?.id ?? null })));
+}
+
+/** Crop by rebuilding the document with its edits included. Undo brings the previous version back. */
+export async function cropDocument(bytes: Uint8Array, margins: CropMargins, pages: "all" | number[]) {
+  const { source, pages: refs } = await createSource(useEditor.getState().docName, await cropPdf(bytes, margins, pages));
+  useEditor.getState().replaceDocument(source, refs);
 }
 
 export function friendlyError(e: unknown): string {
   if (e instanceof EncryptedPdfError) return e.message;
   return "Something went wrong while processing your document. Please try again.";
+}
+
+/** Keep the document as it is now as a reusable template, stored in this browser. */
+export async function saveAsTemplate() {
+  const s = useEditor.getState();
+  try {
+    const saved = await saveTemplate(s.docName, await buildPdf());
+    if (saved) toast.success("Saved as a template", "Find it on the PDF Templates page.");
+    else toast.error("Couldn't save the template", "Your browser's storage may be full or blocked.");
+  } catch (e) {
+    toast.error("Couldn't save the template", friendlyError(e));
+  }
 }
 
 export async function downloadNow() {

@@ -23,7 +23,7 @@ export default defineConfig({
     port: PORT,
     reuseExistingServer: !process.env.CI,
     // Signed URLs and worker callbacks must point at the server under test.
-    env: { APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`, ...(process.env.CI || process.env.E2E_PROD ? { NEXT_DIST_DIR: ".next-e2e" } : {}) },
+    env: { NEXT_PUBLIC_SHARE_ENABLED: "1", SHARE_BACKEND: "local", APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`, ...(process.env.CI || process.env.E2E_PROD ? { NEXT_DIST_DIR: ".next-e2e" } : {}) },
     timeout: 180_000,
   },
 });

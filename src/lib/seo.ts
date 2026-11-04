@@ -31,7 +31,7 @@ export function keyFacts(t: Tool): [string, string][] {
   return [
     ["Price", "Free"],
     ["Account", "Not required"],
-    ["Processing", t.engine === "browser" ? "In your browser. Files aren't uploaded" : `Secure cloud. Files deleted within ${JOB_TTL_MINUTES} minutes`],
+    ["Processing", t.storage ?? (t.engine === "browser" ? "In your browser. Files aren't uploaded" : `Secure cloud. Files deleted within ${JOB_TTL_MINUTES} minutes`)],
     ["Input", [...new Set(t.accepts.map((k) => kindLabel[k]))].join(", ")],
     ["Output", outputFormat(t)],
     ["Max file size", `${mb} MB`],

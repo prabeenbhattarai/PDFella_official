@@ -24,6 +24,12 @@ export type Workspace =
   | { type: "unlock" }
   | { type: "protect" }
   | { type: "repair" }
+  | { type: "crop" }
+  | { type: "bookmarks" }
+  | { type: "details" }
+  | { type: "bulk-fill" }
+  | { type: "templates" }
+  | { type: "share" }
   | { type: "server"; op: ServerOp; output: string };
 
 export type ServerOp =
@@ -48,6 +54,8 @@ export interface Tool {
   features: string[];
   faq: { q: string; a: string }[];
   related: string[];
+  /** Replaces the usual "where it runs" line for a tool that keeps files longer than processing does. */
+  storage?: string;
   /** Honest limitation note shown on the page when relevant. */
   limitation?: string;
 }
@@ -74,7 +82,10 @@ const serverFaq = [
   { q: "Do you use my documents for training?", a: "No. Documents are never used for training, analytics or any purpose other than producing your result." },
 ];
 
-export const tools: Tool[] = [
+/** Share links need Firebase Storage, so the tool stays hidden until that's set up (see docs/SHARING.md). */
+export const shareEnabled = process.env.NEXT_PUBLIC_SHARE_ENABLED === "1";
+
+const allTools: Tool[] = [
   // ───────── Edit
   {
     slug: "edit-pdf", name: "Edit PDF", blurb: "Change text, add images, shapes and more.",
@@ -143,6 +154,24 @@ export const tools: Tool[] = [
     related: ["fill-pdf", "edit-pdf"],
   },
 
+  {
+    slug: "fill-pdf-from-spreadsheet", name: "Fill from Spreadsheet", blurb: "Create a filled PDF for every row.",
+    title: "Fill PDF forms from a spreadsheet", description: "Fill a PDF form once for every row of a CSV or Excel file and download all the copies in a ZIP.",
+    category: "forms", icon: "FileSpreadsheet", accepts: PDF, workspace: { type: "bulk-fill" }, engine: "browser",
+    features: ["CSV and Excel files", "Columns matched to fields automatically", "Name files from a column", "Up to 500 rows at a time"],
+    faq: [{ q: "Are my files uploaded?", a: "No. The form and the spreadsheet are both read in your browser." }, { q: "Do I need an account?", a: "No. Open a form and a spreadsheet and start." }],
+    related: ["pdf-templates", "fill-pdf", "create-pdf-form"],
+    limitation: "Some scripts, such as Devanagari, can't be drawn by the built-in form font yet. Rows with those characters are skipped and listed so you can fill them in the editor.",
+  },
+  {
+    slug: "pdf-templates", name: "PDF Templates", blurb: "Save a form or contract and reuse it.",
+    title: "Save reusable PDF templates", description: "Keep the forms and contracts you use often, then fill one in the editor or fill many copies from a spreadsheet.",
+    category: "forms", icon: "Copy", accepts: PDF, workspace: { type: "templates" }, engine: "browser",
+    features: ["Save any PDF as a template", "Fill once in the editor", "Fill many from a spreadsheet", "Stored only on your device"],
+    faq: [{ q: "Where are my templates stored?", a: "In this browser on this device. They aren't uploaded, so they don't follow you to other devices, and clearing your browser data removes them." }, { q: "Do I need an account?", a: "No." }],
+    related: ["fill-pdf-from-spreadsheet", "create-pdf-form", "fill-pdf"],
+  },
+
   // ───────── Organise
   {
     slug: "merge-pdf", name: "Merge PDF", blurb: "Combine files into one PDF.",
@@ -157,6 +186,29 @@ export const tools: Tool[] = [
     category: "organise", icon: "Split", accepts: PDF, workspace: { type: "split" }, engine: "browser",
     features: ["Custom page ranges", "Every page as its own file", "Odd / even pages", "Fixed-size chunks"],
     faq: commonEditFaq, related: ["extract-pdf-pages", "merge-pdf"],
+  },
+  {
+    slug: "crop-pdf", name: "Crop PDF", blurb: "Trim margins or cut pages to size.",
+    title: "Crop PDF", description: "Trim the margins of a PDF by dragging a box on the page, then apply the crop to every page or just one.",
+    category: "organise", icon: "Crop", accepts: PDF, workspace: { type: "crop" }, engine: "browser",
+    features: ["Drag to set the crop area", "All pages or just one", "Exact margins in percent", "Runs in your browser"],
+    faq: [...commonEditFaq, { q: "Is the cropped content deleted?", a: "No. Cropping hides what's outside the box, and the content stays in the file. To permanently remove sensitive content, use Redact PDF." }],
+    related: ["rotate-pdf", "redact-pdf", "rearrange-pdf-pages"],
+    limitation: "Cropping hides content outside the box but doesn't delete it from the file. Use Redact PDF for anything sensitive.",
+  },
+  {
+    slug: "pdf-bookmarks", name: "Edit Bookmarks", blurb: "Add and edit a PDF's table of contents.",
+    title: "Edit PDF bookmarks", description: "Add, rename, reorder, nest and delete the bookmarks that make up a PDF's navigation panel.",
+    category: "organise", icon: "BookMarked", accepts: PDF, workspace: { type: "bookmarks" }, engine: "browser",
+    features: ["Add bookmarks to any page", "Nest into sections", "Reorder and rename", "Runs in your browser"],
+    faq: commonEditFaq, related: ["pdf-metadata", "rearrange-pdf-pages", "merge-pdf"],
+  },
+  {
+    slug: "pdf-metadata", name: "Edit File Details", blurb: "Change or remove title, author and more.",
+    title: "Edit PDF metadata", description: "View, change or remove a PDF's title, author, subject, keywords and other hidden file details.",
+    category: "organise", icon: "FileSearch", accepts: PDF, workspace: { type: "details" }, engine: "browser",
+    features: ["See hidden file details", "Edit title, author and keywords", "Remove everything in one click", "Runs in your browser"],
+    faq: commonEditFaq, related: ["pdf-bookmarks", "redact-pdf", "flatten-pdf"],
   },
   {
     slug: "rotate-pdf", name: "Rotate PDF", blurb: "Turn pages the right way up.",
@@ -307,6 +359,19 @@ export const tools: Tool[] = [
 
   // ───────── Security
   {
+    slug: "share-pdf", name: "Share PDF", blurb: "Send a PDF by link, with an expiry date.",
+    title: "Share a PDF by link", description: "Create an encrypted link to a PDF that anyone can open, with an expiry date and an optional password.",
+    category: "security", icon: "Link2", accepts: PDF, workspace: { type: "share" }, engine: "server",
+    storage: "Encrypted on your device, deleted when the link expires",
+    features: ["Encrypted before upload", "Expires after 1, 7 or 30 days", "Optional password", "Files up to 5 MB, with compression built in"],
+    faq: [
+      { q: "Can PDFella read my file?", a: "No. Your file is encrypted on your device before it's uploaded, and the key is only in the link you share." },
+      { q: "Do I need an account?", a: "You need a free one-click sign-in to create a link. People you send it to don't need an account." },
+    ],
+    related: ["protect-pdf", "compress-pdf", "redact-pdf"],
+    limitation: "If you lose the link or its password, the file can't be recovered, because we never have the key.",
+  },
+  {
     slug: "protect-pdf", name: "Protect PDF", blurb: "Add a password.",
     title: "Password protect PDF", description: "Encrypt a PDF with AES-256 so it needs a password to open.",
     category: "security", icon: "Lock", accepts: PDF, workspace: { type: "protect" }, engine: "browser",
@@ -369,6 +434,8 @@ export const tools: Tool[] = [
     faq: commonEditFaq, related: ["fill-pdf", "edit-pdf"],
   },
 ];
+
+export const tools = allTools.filter((t) => shareEnabled || t.slug !== "share-pdf");
 
 export const toolBySlug = new Map(tools.map((t) => [t.slug, t]));
 
