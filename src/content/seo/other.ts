@@ -1,3 +1,4 @@
+import { plansOn } from "@/lib/plan-copy";
 import type { ToolContent } from "./types";
 
 const UPLOAD = (where = "browser") => ({
@@ -473,7 +474,7 @@ export const otherContent: ToolContent[] = [
       { title: "Fill in the fields", body: "Fillable fields appear in the Form fields panel on the right. Type answers, tick boxes and pick options. For forms without fields, choose Add text and click on each line.", shot: 2 },
       { title: "Sign and save", body: "Add your signature with Sign. When saving, optionally flatten the form so answers can't be changed, then download.", shot: 3 },
     ],
-    benefits: [{ title: "Detects fields", body: "Text fields, checkboxes, radio buttons and dropdowns." }, { title: "Non-fillable forms too", body: "Type anywhere with Add text." }, { title: "Sign in place", body: "Add a typed, drawn or uploaded signature." }, PRIVATE],
+    benefits: [{ title: "Detects fields", body: "Text fields, checkboxes, radio buttons and dropdowns." }, { title: "Non-fillable forms too", body: "Type anywhere with Add text." }, { title: "Sign in place", body: plansOn ? "Add a typed, drawn or uploaded signature with Lite or Pro." : "Add a typed, drawn or uploaded signature." }, PRIVATE],
     sections: [{ heading: "Fillable vs. non-fillable PDF forms", body: ["Fillable forms contain interactive fields that PDFella lists in the Form fields panel. Many forms are simply scanned or flat PDFs with lines to write on: for those, use Add text and place your answers on the lines, nudging with the arrow keys for precise alignment."] }],
     tips: ["Choose Flatten form fields when saving so answers can't be altered."],
     useCases: [

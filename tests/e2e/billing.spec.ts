@@ -35,3 +35,9 @@ test("until then, buy buttons offer an email", async ({ page }) => {
 test("the account page stays hidden until payments are on", async ({ request }) => {
   expect((await request.get("/account")).status()).toBe(404);
 });
+
+test("the first-time offer can't be claimed without signing in, and isn't offered when it's not set up", async ({ request }) => {
+  expect((await (await request.get("/api/reward")).json()).eligible).toBe(false);
+  const claim = await request.post("/api/reward", { data: { source: "search", feature: "redact" } });
+  expect([401, 503]).toContain(claim.status());
+});

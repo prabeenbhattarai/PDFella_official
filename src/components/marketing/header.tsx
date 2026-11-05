@@ -30,6 +30,9 @@ const MENUS: { id: string; label: string; columns: { title: string; items: Tool[
   { id: "security", label: "Security", columns: [{ title: "Protect documents", items: pick(["protect-pdf", "unlock-pdf", "redact-pdf", "watermark-pdf", "ocr-pdf"]) }] },
 ];
 
+/** Pricing joins the menu when the plans go live, along with the page's footer link. */
+const PRICING_LIVE = !!process.env.NEXT_PUBLIC_PLANS_ENABLED;
+
 function MenuItem({ t, onNavigate }: { t: Tool; onNavigate: () => void }) {
   return (
     <Link href={`/${t.slug}`} onClick={onNavigate} className="group flex items-start gap-3 rounded-lg p-2.5 transition-colors hover:bg-surface-2">
@@ -170,6 +173,12 @@ export function Header() {
             <NavMenu label="Desktop" compact={scrolled} open={menu === "desktop"} onOpen={() => setMenu("desktop")} onClose={closeIf("desktop")} active={pathname === "/download"}>
               <DesktopMenu onNavigate={close} />
             </NavMenu>
+
+            {PRICING_LIVE && (
+              <Link href="/pricing" onClick={close} aria-current={pathname === "/pricing" ? "page" : undefined} className={cn("relative flex items-center font-semibold transition-all duration-300", scrolled ? "h-14 px-3 text-[14px]" : "h-16 px-3 text-[15px] xl:px-4", pathname === "/pricing" ? "text-accent" : "text-ink hover:text-accent")}>
+                Pricing
+              </Link>
+            )}
           </nav>
 
           <div className={cn("ml-auto flex shrink-0 items-center justify-end gap-2 lg:ml-0", !scrolled && "lg:flex-1")}>
@@ -213,6 +222,9 @@ export function Header() {
               })}
             </div>
           </div>
+          {PRICING_LIVE && (
+            <Link href="/pricing" className="flex h-11 items-center rounded-md px-2 text-[15px] font-semibold text-ink hover:bg-surface-2">Pricing</Link>
+          )}
           {authEnabled && signedOut && (
             <button type="button" onClick={() => { setMobile(false); useAuth.getState().openPrompt("editor"); }} className="flex h-11 w-full items-center justify-center rounded-lg border border-border text-[15px] font-semibold text-ink-2 hover:bg-surface-2 xl:hidden">Sign in</button>
           )}

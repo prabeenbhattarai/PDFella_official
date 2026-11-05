@@ -3,6 +3,8 @@
  * tested on their own. Stripe keeps retrying a failed renewal (past_due), so the plan
  * stays on until Stripe gives up; a few spare days cover the gap around each renewal.
  */
+import { UNDO_CANCEL_MINUTES } from "../plan-limits";
+
 export type PaidPlan = "lite" | "pro";
 export const RENEWAL_GRACE_DAYS = 3;
 const KEEPS_PLAN = new Set(["active", "trialing", "past_due"]);
@@ -49,13 +51,12 @@ export interface SubscriptionView extends SubscriptionRecord {
   undoUntil: string | null;
 }
 
-/** People can change their mind for 24 hours after cancelling, as long as the plan hasn't ended by then. */
-export const UNDO_CANCEL_HOURS = 24;
+/** People can change their mind for a few minutes after cancelling, as long as the plan hasn't ended by then. */
 
 export function undoDeadline(sub: Pick<SubscriptionLike, "cancel_at_period_end" | "canceled_at" | "current_period_end" | "items">): number | null {
   if (!sub.cancel_at_period_end || !sub.canceled_at) return null;
   const end = sub.items.data[0]?.current_period_end ?? sub.current_period_end;
-  const deadline = sub.canceled_at + UNDO_CANCEL_HOURS * 3600;
+  const deadline = sub.canceled_at + UNDO_CANCEL_MINUTES * 60;
   return end ? Math.min(deadline, end) : deadline;
 }
 

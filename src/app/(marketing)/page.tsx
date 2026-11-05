@@ -1,4 +1,5 @@
 import { cloudToolsEnabled } from "@/lib/tools";
+import { EXTRAS_NOTE, plansOn } from "@/lib/plan-copy";
 import Link from "next/link";
 import {
   ArrowRight, Check, GraduationCap, Briefcase, Scale, Home, Users, Calculator, PenTool,
@@ -18,8 +19,8 @@ import { JOB_TTL_MINUTES, limitsFor } from "@/lib/limits";
 
 const faq = [
   { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
-  { q: `Is ${brand.name} free to use?`, a: `Yes. Every tool is free with generous limits, and most work without an account. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in.${cloudToolsEnabled ? " Heavier cloud processing (OCR, Office conversion) has a daily allowance." : ""}` },
-  { q: "Do I need to create an account?", a: "Not for most tools. Drop a file and start working. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in." },
+  { q: `Is ${brand.name} free to use?`, a: `${plansOn ? "Yes, for everyday PDF work, with no watermark and no account." : "Yes. Every tool is free with generous limits, and most work without an account."} ${EXTRAS_NOTE}${cloudToolsEnabled ? " Heavier cloud processing (OCR, Office conversion) has a daily allowance." : ""}` },
+  { q: "Do I need to create an account?", a: plansOn ? "Not for the free tools. Drop a file and start working. Buying a plan needs a one-click Google sign-in, so your plan stays on your account." : `Not for most tools. Drop a file and start working. ${EXTRAS_NOTE}` },
   { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. ${cloudToolsEnabled ? `Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` : "OCR and Office conversions are coming soon."}` },
   { q: "Can I really edit the existing text in a PDF?", a: "Yes. Double-click any word or sentence and type. The original text is removed from the PDF and replaced at the same position, size and style." },
   { q: "My PDF has a password. Can I still edit it?", a: "Yes. PDFs that only restrict printing, copying or editing open automatically. If a PDF needs a password to open, enter it once and the document becomes fully editable." },
@@ -42,7 +43,7 @@ const useCases = [
 const free = limitsFor("free");
 type FactRow = [string, string, true | string];
 const facts: FactRow[] = [
-  ["Edit existing text, sign and annotate", "Signatures, stamps, extra pages and font styles need a free Google sign-in", true],
+  ["Edit existing text, sign and annotate", plansOn ? "Editing and annotating are free. Signatures and stamps are part of Lite and Pro" : "Signatures, stamps, extra pages and font styles need a free Google sign-in", true],
   ["Merge, split, compress and organise pages", "Runs in your browser", true],
   ...(cloudToolsEnabled ? [
     ["Convert to and from Word, Excel and PowerPoint", "PDF to Word runs in your browser; the other conversions use secure cloud", true],
@@ -252,7 +253,7 @@ export default function LandingPage() {
       <section className="py-16">
         <div className="wrap">
           <div className="pt-8"><Heading eyebrow="Features" title="Everything you need to work with PDFs" intro={`One editor for changing text, converting formats, annotating, signing${cloudToolsEnabled ? ", OCR" : ""} and organising pages.`} /></div>
-          <Feature eyebrow="Edit" title="Edit PDF text directly, not just on top." body="Double-click any sentence to edit the original text in place. Add new text with full typographic control, cover content with whiteout, insert images and shapes, with unlimited undo." bullets={["Edit existing text", "Fonts, sizes, colours", "Whiteout and replace", "Images, shapes, links"]} href="/edit-pdf" cta="Open the editor" visual={<LiveDemo only="edit" />} />
+          <Feature eyebrow="Edit" title="Edit PDF text directly, not just on top." body="Double-click any sentence to edit the original text in place. Add new text with full typographic control, cover content with whiteout, insert images and shapes, with undo for your last 100 steps." bullets={["Edit existing text", "Fonts, sizes, colours", "Whiteout and replace", "Images, shapes, links"]} href="/edit-pdf" cta="Open the editor" visual={<LiveDemo only="edit" />} />
           <Feature flip eyebrow="Convert" title={cloudToolsEnabled ? "Convert PDF to Word, Excel and images in seconds." : "Convert PDF to Word and images in seconds."} body={cloudToolsEnabled ? "Turn PDFs into Word, Excel, PowerPoint, images and text. PDF to Word runs right in your browser with live progress. Office files and images become clean PDFs." : "Turn PDFs into Word, images and text, and images into PDFs, right in your browser with live progress."} bullets={cloudToolsEnabled ? ["PDF ⇄ Word", "PDF → Excel and PowerPoint", "PDF ⇄ JPG / PNG", "Office → PDF"] : ["PDF → Word", "PDF → text", "PDF ⇄ JPG / PNG"]} href="/pdf-to-word" cta="Convert a PDF" visual={<LiveDemo only="convert" />} />
           <Feature eyebrow="Annotate" title="Annotate and highlight PDFs like paper." body="Highlight passages, draw freehand, add arrows and clouds, drop sticky-note comments and approval stamps. Comments are saved as real PDF annotations." bullets={["Highlight, underline, strike", "Pen, shapes and arrows", "Sticky-note comments", "Stamps, checks and crosses"]} href="/annotate-pdf" cta="Annotate a PDF" visual={<LiveDemo only="annotate" />} />
           <Feature flip eyebrow="Sign" title="Sign PDFs online from any device." body="Type your name in a handwriting style, draw with a mouse, pen or finger, or upload an image of your signature. Reuse it across the document." bullets={["Typed, drawn or uploaded", "Resize and rotate", "Date and initials fields", "Never stored without consent"]} href="/sign-pdf" cta="Sign a PDF" visual={<LiveDemo only="sign" />} />

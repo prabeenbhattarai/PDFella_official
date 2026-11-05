@@ -54,16 +54,16 @@ describe("what the account page shows", () => {
 });
 
 describe("getting a plan back after cancelling", () => {
-  const HOUR = 3600;
-  const cancelled = (canceledAt: number, periodEnd = canceledAt + 30 * 24 * HOUR) => ({ cancel_at_period_end: true, canceled_at: canceledAt, items: { data: [{ current_period_end: periodEnd, price: { id: "p" } }] } });
-  it("is allowed for 24 hours, and not after", () => {
-    expect(canUndoCancel(cancelled(1000), 1000 + 23 * HOUR)).toBe(true);
-    expect(canUndoCancel(cancelled(1000), 1000 + 24 * HOUR)).toBe(false);
-    expect(canUndoCancel(cancelled(1000), 1000 + 25 * HOUR)).toBe(false);
+  const MIN = 60;
+  const cancelled = (canceledAt: number, periodEnd = canceledAt + 30 * 86_400) => ({ cancel_at_period_end: true, canceled_at: canceledAt, items: { data: [{ current_period_end: periodEnd, price: { id: "p" } }] } });
+  it("is allowed for 5 minutes, and not after", () => {
+    expect(canUndoCancel(cancelled(1000), 1000 + 4 * MIN)).toBe(true);
+    expect(canUndoCancel(cancelled(1000), 1000 + 5 * MIN)).toBe(false);
+    expect(canUndoCancel(cancelled(1000), 1000 + 6 * MIN)).toBe(false);
   });
   it("can't run past the end of the plan", () => {
-    expect(undoDeadline(cancelled(1000, 1000 + 2 * HOUR))).toBe(1000 + 2 * HOUR);
-    expect(canUndoCancel(cancelled(1000, 1000 + 2 * HOUR), 1000 + 3 * HOUR)).toBe(false);
+    expect(undoDeadline(cancelled(1000, 1000 + 2 * MIN))).toBe(1000 + 2 * MIN);
+    expect(canUndoCancel(cancelled(1000, 1000 + 2 * MIN), 1000 + 3 * MIN)).toBe(false);
   });
   it("doesn't apply to a subscription that isn't cancelling", () => {
     expect(undoDeadline({ cancel_at_period_end: false, canceled_at: 1000, items: { data: [] } })).toBeNull();

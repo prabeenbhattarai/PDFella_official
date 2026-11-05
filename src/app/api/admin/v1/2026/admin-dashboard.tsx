@@ -10,6 +10,7 @@ import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, signInWithGoogle, signOutUser } from "@/lib/auth/firebase";
 import { UsersTable } from "./users-table";
 import { SharesTable } from "./shares-table";
+import { FeedbackTable } from "./feedback-table";
 import { BreakdownSection } from "./breakdown";
 import type { DesktopPeople, DesktopUsage, DownloadStats, UserStats, VisitorStats } from "@/lib/server/admin";
 
@@ -296,6 +297,7 @@ export function AdminDashboard() {
           <UsersTable refreshKey={refreshKey} />
         </>
       )}
+      {process.env.NEXT_PUBLIC_PLANS_ENABLED && <FeedbackTable refreshKey={refreshKey} />}
       <SharesTable refreshKey={refreshKey} />
       <p className="mt-8 text-[12px] text-ink-3">Visitors and app users come from PostHog. Without cookies a visitor gets a new anonymous ID each day, so 7- and 30-day counts include repeat visits on different days. Downloads come from GitHub and include the test downloads made while setting the app up.</p>
     </Shell>

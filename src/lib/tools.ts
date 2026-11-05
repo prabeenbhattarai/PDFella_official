@@ -3,6 +3,7 @@
  * sitemap, related-tool links and routing. Adding a tool = adding an entry here
  * (+ a workspace implementation if it is not editor-based).
  */
+import { EXTRAS_NOTE, toolPlan } from "./plan-copy";
 import type { DetectedKind } from "./security/filetype";
 
 export type ToolCategory = "edit" | "organise" | "convert" | "optimise" | "security" | "forms";
@@ -74,7 +75,7 @@ const IMAGES: DetectedKind[] = ["png", "jpg", "webp"];
 const OFFICE: DetectedKind[] = ["docx", "xlsx", "pptx", "odt", "txt"];
 
 const commonEditFaq = [
-  { q: "Do I need an account?", a: "Not to get started. Open a file and start editing. Signatures, stamps, adding pages and font styles need a free one-click Google sign-in." },
+  { q: "Do I need an account?", a: `Not to get started. Open a file and start editing. ${EXTRAS_NOTE}` },
   { q: "Are my files uploaded?", a: "Editing happens entirely in your browser. Your PDF is not sent to our servers for this tool." },
 ];
 const serverFaq = [
@@ -457,8 +458,10 @@ export function accountNeed(t: Tool): "required" | "extras" | "none" {
   return t.workspace.type === "editor" ? "extras" : "none";
 }
 
-/** Short badge text matching accountNeed(). */
+/** Short badge text: which plan a paid tool is part of, or how free tools start. */
 export function accountBadge(t: Tool): string {
+  const plan = toolPlan(t.slug);
+  if (plan) return plan === "lite" ? "Part of Lite and Pro" : "Part of Pro";
   const need = accountNeed(t);
   return need === "required" ? "Free with one-click sign-in" : need === "extras" ? "Free, no sign-up to start" : "Free, no sign-up";
 }

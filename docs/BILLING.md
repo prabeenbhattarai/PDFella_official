@@ -45,11 +45,21 @@ Do all of this in **test mode** first, then repeat it in live mode.
 
 - **Moving up** (Lite to Pro, or monthly to yearly) starts straight away and charges the difference. If the card is declined, the plan stays as it was.
 - **Moving down** (Pro to Lite, or yearly to monthly) starts when the paid period ends. They keep what they paid for until then, and can change their mind.
-- **Cancelling** stops at the end of the paid period. It can be undone for 24 hours, with a countdown on the page and the limit enforced on the server. After that they keep the plan until it ends, then can buy a new one. Plans can't be switched while cancelled.
+- **Cancelling** stops at the end of the paid period. The customer has to type `cancel` to confirm. It can be undone for 5 minutes (`UNDO_CANCEL_MINUTES`), with a countdown on the page and the limit enforced on the server. After that they keep the plan until it ends, then can buy a new one. Plans can't be switched while cancelled.
 - **Failed renewals:** Stripe retries the card and the plan stays on while it does. When the retries run out, Stripe cancels the subscription and the plan is removed.
 - **Card and invoices** open Stripe's customer portal, which only handles those.
 
 `npm run test:stripe` runs all of this against Stripe's test mode with a simulated clock.
+
+## First-time offer
+
+New visitors can answer "How did you hear about us?" and get one paid feature for 24 hours. The server refuses a second claim from the same account or IP address, and accounts older than 7 days. Answers are in the admin panel.
+
+It stays hidden unless all of this is set up:
+
+1. **Firestore:** Firebase console, Build, Firestore Database, Create database, in production mode. The server's service account can use it, and the browser can't.
+2. **`APP_SECRET` in Vercel:** a long random value, which scrambles IP addresses. Keep it the same once set, or everyone counts as new again.
+3. **`NEXT_PUBLIC_PLANS_ENABLED=1`**, because the offer unlocks paid features.
 
 ## Settings that prevent disputes
 

@@ -352,7 +352,7 @@ export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; 
         // Phones have no hover or double-click: a tap on PDF text edits it (unless the
         // tap was just dismissing a selection).
         if (e.pointerType === "touch") {
-          if (!hadSelection) set({ type: "tap", start: p, x: e.clientX, y: e.clientY, t: performance.now() });
+          if (!hadSelection) set({ type: "tap", start: p, x: e.clientX, y: e.clientY, t: e.timeStamp });
           return;
         }
         // Rubber-band selection (mouse/pen; touch drags scroll the page instead).
@@ -493,7 +493,8 @@ export function PageLayer({ page, index, z, sample, removed }: { page: PageRef; 
     const st = useEditor.getState().style;
     if (g.type === "tap") {
       // A cancelled pointer means the browser took over (scrolling or zooming), not a tap.
-      if (e.type === "pointercancel" || Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10 || performance.now() - g.t > 600) return;
+      // Event times, not the clock now: a busy phone can handle a quick tap late.
+      if (e.type === "pointercancel" || Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10 || e.timeStamp - g.t > 600) return;
       void (async () => {
         const all = runs ?? (await getTextRuns(page).catch(() => []));
         const run = runAt(all, g.start, 10 / z);

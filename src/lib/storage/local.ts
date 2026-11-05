@@ -21,8 +21,9 @@ async function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBReq
     return await new Promise<T>((resolve, reject) => {
       const t = db.transaction(STORE, mode);
       const req = fn(t.objectStore(STORE));
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      // Only finished once it's committed. Safari can miss a write read straight after otherwise.
+      t.oncomplete = () => resolve(req.result);
+      t.onerror = t.onabort = () => reject(t.error ?? req.error);
     }).finally(() => db.close());
   } catch {
     return undefined;

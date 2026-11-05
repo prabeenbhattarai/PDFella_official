@@ -8,11 +8,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth/store";
 import { openBillingPortal, waitForPlan } from "@/lib/billing-client";
-import { useTier } from "@/lib/plans";
+import { usePlan, useTier } from "@/lib/plans";
+import { rewardLabel } from "@/lib/reward";
 import { PRICES } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { SubscriptionView } from "@/lib/server/billing-plan";
-import { CancelZone } from "./cancel-zone";
+import { CancelDialog, CancelZone, SorryDialog } from "./cancel-zone";
 
 type Billing = "monthly" | "yearly";
 type Plan = "lite" | "pro";
@@ -39,11 +40,13 @@ export function AccountPanel() {
   const user = useAuth((s) => s.user);
   const ready = useAuth((s) => s.ready);
   const tier = useTier();
+  const reward = usePlan((s) => s.reward);
   const [sub, setSub] = useState<Current | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"cancel" | "resume" | "portal" | "switch" | "keep" | "preview" | null>(null);
   const [changing, setChanging] = useState<{ to: Choice; timing: "now" | "period_end"; charge: { amount: number; currency: string } | null } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [sorry, setSorry] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -57,7 +60,8 @@ export function AccountPanel() {
       setSub((await call({ method: "POST", body: JSON.stringify({ action: cancel ? "cancel" : "resume" }) })).subscription ?? null);
       setConfirming(false);
       void waitForPlan(1);
-      toast.success(cancel ? "Your subscription is cancelled" : "You got your plan back", cancel ? "You have 24 hours to change your mind." : "It will renew as normal.");
+      if (cancel) setSorry(true);
+      else toast.success("You got your plan back", "It will renew as normal.");
     } catch (e) {
       toast.error("Couldn't update your subscription", (e as Error).message);
     } finally {
@@ -125,6 +129,7 @@ export function AccountPanel() {
         <dl className="divide-y divide-border">
           {row("Email", user.email ?? "—")}
           {row("Plan", sub ? NAMES[sub.plan ?? tier] : NAMES[tier])}
+          {reward && row("Free feature", `${rewardLabel(reward.feature)}, until ${day(reward.until)}`)}
           {sub && row("Price", `${money(sub.amount, sub.currency)} a ${sub.interval ?? "period"}`)}
           {sub && row(ending ? "Your plan ends" : "Next payment", day(sub.periodEnd))}
         </dl>
@@ -191,10 +196,8 @@ export function AccountPanel() {
         <p className="text-[14px] text-ink-3">You can cancel at any time.</p>
       </Dialog>
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} title="Cancel your subscription?" description={`You won't be charged again, and you keep ${NAMES[sub?.plan ?? tier]} until ${day(sub?.periodEnd ?? null)}. After that, your account moves to the Free plan.`}
-        footer={<><Button variant="ghost" onClick={() => setConfirming(false)}>Keep my plan</Button><Button variant="danger" disabled={busy === "cancel"} onClick={() => void change(true)}>{busy === "cancel" && <Loader2 className="animate-spin" />} Cancel subscription</Button></>}>
-        <p className="text-[14px] font-medium text-danger">You&apos;ll have 24 hours to change your mind. After that, this subscription can&apos;t be brought back.</p>
-      </Dialog>
+      <CancelDialog open={confirming} planName={NAMES[sub?.plan ?? tier]} periodEnd={day(sub?.periodEnd ?? null)} busy={busy === "cancel"} onClose={() => setConfirming(false)} onConfirm={() => void change(true)} />
+      <SorryDialog open={sorry} planName={NAMES[sub?.plan ?? tier]} periodEnd={day(sub?.periodEnd ?? null)} onClose={() => setSorry(false)} />
     </>
   );
 }

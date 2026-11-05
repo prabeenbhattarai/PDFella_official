@@ -4,13 +4,14 @@ import { create } from "zustand";
 import { requireAuth, useAuth, authEnabled, type LockedFeature } from "./auth/store";
 import { DOCUMENTS_PER_DAY, LITE_TABS } from "./plan-limits";
 import { claimTier, type Tier } from "./plan-claim";
+import { activeReward, type RewardFeature } from "./reward";
 
 /**
  * Free, Lite and Pro. Nothing is locked until NEXT_PUBLIC_PLANS_ENABLED=1, so the live site
  * doesn't change until people can actually buy Pro. Most of these locks run in the
  * browser, like the tools they guard; only cloud tasks are enforced on the server.
  */
-export { claimTier, type Tier };
+export { activeReward, claimTier, type Tier };
 
 const MODE = process.env.NEXT_PUBLIC_PLANS_ENABLED;
 const PREVIEW_KEY = "pdfella.plan-preview";
@@ -45,8 +46,11 @@ interface PlanState {
   tier: Tier;
   /** False until the signed-in account's plan is known. */
   loaded: boolean;
+  /** A paid feature unlocked by the welcome survey, for a day. */
+  reward: { feature: RewardFeature; until: string } | null;
   upgrade: { feature: PlanFeature } | null;
   setTier(tier: Tier): void;
+  setReward(reward: PlanState["reward"]): void;
   openUpgrade(feature: PlanFeature): void;
   closeUpgrade(): void;
 }
@@ -54,8 +58,10 @@ interface PlanState {
 export const usePlan = create<PlanState>((set) => ({
   tier: "free",
   loaded: false,
+  reward: null,
   upgrade: null,
   setTier: (tier) => set({ tier, loaded: true }),
+  setReward: (reward) => set({ reward }),
   openUpgrade: (feature) => set({ upgrade: { feature } }),
   closeUpgrade: () => set({ upgrade: null }),
 }));
@@ -66,7 +72,10 @@ export const currentTier = (): Tier => preview() ?? usePlan.getState().tier;
 export const planToOffer = (feature: PlanFeature): Exclude<Tier, "free"> =>
   feature === "documents" ? (currentTier() === "free" ? "lite" : "pro") : NEEDS[feature];
 
-const hasFeature = (tier: Tier, feature: Exclude<PlanFeature, "documents">) => RANK[tier] >= RANK[NEEDS[feature]];
+const rewardCovers = (reward: PlanState["reward"], feature: PlanFeature) =>
+  !!reward && reward.feature === feature && Date.parse(reward.until) > Date.now();
+const hasFeature = (tier: Tier, feature: Exclude<PlanFeature, "documents">, reward = usePlan.getState().reward) =>
+  RANK[tier] >= RANK[NEEDS[feature]] || rewardCovers(reward, feature);
 
 /** The plan to apply limits for, kept up to date as it loads. */
 export function useTier(): Tier {
@@ -77,8 +86,9 @@ export function useTier(): Tier {
 /** For marking locked options. Nothing counts as locked while plans are switched off. */
 export function useIsLocked() {
   const stored = usePlan((s) => s.tier);
+  const reward = usePlan((s) => s.reward);
   const tier = preview() ?? stored;
-  return (feature: Exclude<PlanFeature, "documents">) => plansEnforced() && !hasFeature(tier, feature);
+  return (feature: Exclude<PlanFeature, "documents">) => plansEnforced() && !hasFeature(tier, feature, reward);
 }
 
 /**

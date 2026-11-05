@@ -3,6 +3,7 @@ import { json, fail, sameOrigin } from "@/lib/server/http";
 import { bearer, verifyIdToken } from "@/lib/server/firebase-auth";
 import { canSell, describeSubscription, liveSubscription, priceId, priceMap, stripe, syncSubscription } from "@/lib/server/billing";
 import { canUndoCancel } from "@/lib/server/billing-plan";
+import { UNDO_CANCEL_MINUTES } from "@/lib/plan-limits";
 import { changeTiming, clearPendingChange, currentChoice, downgradeAtPeriodEnd, pendingChange, previewUpgrade, setCancelling, upgradeNow } from "@/lib/server/billing-switch";
 
 export const dynamic = "force-dynamic";
@@ -48,10 +49,10 @@ export async function POST(req: Request) {
     const sub = await liveSubscription(uid);
     if (!sub) return fail(404, "no_subscription", "This account has no subscription to change.");
 
-    if (action === "resume" && !canUndoCancel(sub as never)) return fail(410, "undo_expired", "The 24 hours to get your plan back have passed. You keep your plan until it ends, and you can buy a new one after that.");
+    if (action === "resume" && !canUndoCancel(sub as never)) return fail(410, "undo_expired", `The ${UNDO_CANCEL_MINUTES} minutes to get your plan back have passed. You keep your plan until it ends, and you can buy a new one after that.`);
     if (action === "cancel" && sub.cancel_at_period_end) return fail(409, "already_cancelled", "This subscription is already cancelled.");
     // Changing plan would quietly undo a cancellation, so that has to be undone first.
-    if ((action === "switch" || action === "keep-plan") && sub.cancel_at_period_end) return fail(409, "cancelled", "Your subscription is cancelled, so its plan can't be changed. If you're within 24 hours of cancelling, get your plan back first.");
+    if ((action === "switch" || action === "keep-plan") && sub.cancel_at_period_end) return fail(409, "cancelled", "Your subscription is cancelled, so its plan can't be changed. If you've only just cancelled, get your plan back first.");
 
     if (action === "cancel" || action === "resume") await setCancelling(stripe(), sub, action === "cancel");
     else if (action === "keep-plan") await clearPendingChange(stripe(), sub);

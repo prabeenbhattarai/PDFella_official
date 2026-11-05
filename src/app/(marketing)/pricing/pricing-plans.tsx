@@ -40,6 +40,7 @@ const PLANS: Plan[] = [
       "Convert PDFs to Word, images and text",
       "The common fonts, such as Arial and Times look-alikes",
       "Files up to 100 MB, with no watermark",
+      "The desktop app for Mac and Windows",
     ],
   },
   {
@@ -94,6 +95,7 @@ const COMPARE: { group: string; rows: [string, Cell, Cell, Cell][] }[] = [
   {
     group: "Other tools",
     rows: [
+      ["Desktop app for Mac and Windows", true, true, true],
       ["Merge, split, rotate, compress", true, true, true],
       ["Convert PDFs to Word, images and text", true, true, true],
       ["Templates", false, false, true],

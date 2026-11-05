@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Activity, CalendarClock, Crown, Globe2, Loader2, Monitor, X } from "lucide-react";
 import { currentIdToken } from "@/lib/auth/firebase";
 import type { UserDetail } from "@/lib/server/admin";
+import { REWARD_SOURCES, rewardLabel } from "@/lib/reward";
 
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 const region = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch { return null; } })();
@@ -58,7 +59,7 @@ export function UserDrawer({ uid, onClose }: { uid: string; onClose: () => void 
   return <UserDrawerView user={user} error={error} onClose={onClose} onChanged={() => setReloads((n) => n + 1)} />;
 }
 
-function PlanSection({ uid, plan, billing, onChanged }: { uid: string; plan: UserDetail["plan"]; billing: UserDetail["billing"]; onChanged?: () => void }) {
+function PlanSection({ uid, plan, billing, reward, onChanged }: { uid: string; plan: UserDetail["plan"]; billing: UserDetail["billing"]; reward: UserDetail["reward"]; onChanged?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const active = !!plan && (!plan.until || Date.parse(plan.until) > Date.now());
@@ -92,6 +93,7 @@ function PlanSection({ uid, plan, billing, onChanged }: { uid: string; plan: Use
           ]} />
         </div>
       )}
+      {reward && <p className="mt-1.5 text-[13px] text-ink-2">Welcome reward: {rewardLabel(reward.feature)}, until {when(reward.until)}{reward.source ? `. Found us through: ${REWARD_SOURCES.find((s) => s.id === reward.source)?.label ?? reward.source}` : ""}.</p>}
       <div className="mt-2 flex flex-wrap gap-1.5">
         <button type="button" disabled={busy} className={btn} onClick={() => void set("lite", 30)}>Lite, 30 days</button>
         <button type="button" disabled={busy} className={btn} onClick={() => void set("pro", 30)}>Pro, 30 days</button>
@@ -146,7 +148,7 @@ export function UserDrawerView({ user, error, onClose, onChanged }: { user: User
               ]} />
             </Section>
 
-            <PlanSection uid={user.uid} plan={user.plan} billing={user.billing} onChanged={onChanged} />
+            <PlanSection uid={user.uid} plan={user.plan} billing={user.billing} reward={user.reward} onChanged={onChanged} />
 
             {user.desktop && (
               <Section icon={Monitor} title="Desktop app">

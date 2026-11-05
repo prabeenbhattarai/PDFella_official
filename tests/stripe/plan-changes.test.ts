@@ -128,8 +128,8 @@ describe("cancelling", () => {
     const { sub, clock, customer, start } = await setup(PRICE.liteMonthly);
     const cancelled = await setCancelling(stripe, sub, true);
     expect(cancelled.canceled_at).toBeTruthy();
-    expect(canUndoCancel(cancelled as never, cancelled.canceled_at! + 3600)).toBe(true);
-    expect(canUndoCancel(cancelled as never, cancelled.canceled_at! + 25 * 3600)).toBe(false);
+    expect(canUndoCancel(cancelled as never, cancelled.canceled_at! + 4 * 60)).toBe(true);
+    expect(canUndoCancel(cancelled as never, cancelled.canceled_at! + 6 * 60)).toBe(false);
     const undone = await setCancelling(stripe, cancelled, false);
     expect(undone.cancel_at_period_end).toBe(false);
     expect(undoDeadline(undone as never)).toBeNull();

@@ -4,11 +4,15 @@ import { organiseContent } from "./organise";
 import { convertContent } from "./convert";
 import { otherContent } from "./other";
 import { tools } from "@/lib/tools";
+import { toolPlan } from "@/lib/plan-copy";
+import { forPaidPlan } from "./paid-tools";
 
 export type { ToolContent } from "./types";
 
 const enabled = new Set(tools.map((t) => t.slug));
-const all = [...editContent, ...organiseContent, ...convertContent, ...otherContent].filter((c) => enabled.has(c.slug));
+const everything = [...editContent, ...organiseContent, ...convertContent, ...otherContent].filter((c) => enabled.has(c.slug));
+/** Paid tools describe their plan, not "free", once plans are switched on. */
+const all = everything.map((c) => { const plan = toolPlan(c.slug); return plan ? forPaidPlan(c, plan) : c; });
 const bySlug = new Map(all.map((c) => [c.slug, c]));
 
 /** Publication / last-reviewed date shown on guides and used in structured data. */

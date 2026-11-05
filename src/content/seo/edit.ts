@@ -1,3 +1,4 @@
+import { ANNOTATE_NOTE, EXTRAS_NOTE, FONTS_NOTE, plansOn } from "@/lib/plan-copy";
 import type { ToolContent } from "./types";
 
 const UPLOAD_STEP = (what = "PDF") => ({
@@ -15,7 +16,7 @@ export const editContent: ToolContent[] = [
     metaDescription: "Edit PDF files online for free. Change existing text, add text, images, shapes and signatures, then download a real PDF. No install, works in your browser.",
     h1: "Edit PDF online, free",
     subtitle: "A free online PDF editor that changes the text already in your PDF, not just what sits on top. Add text, images, shapes and signatures, then download a clean PDF.",
-    quickAnswer: "To edit a PDF online, upload it to PDFella's free PDF editor, double-click any sentence to change its text, use the toolbar to add text, images, shapes or a signature, then click Save changes and Download PDF. Editing runs in your browser, so the file is never uploaded.",
+    quickAnswer: `To edit a PDF online, upload it to PDFella's free PDF editor, double-click any sentence to change its text, use the toolbar to add text, images and shapes${plansOn ? "" : " or a signature"}, then click Save changes and Download PDF. Editing runs in your browser, so the file is never uploaded.`,
     howToTitle: "How to edit a PDF online",
     totalTime: "PT2M",
     steps: [
@@ -28,7 +29,7 @@ export const editContent: ToolContent[] = [
       { title: "Real text editing", body: "The original words are removed from the PDF and replaced, so the edited text is searchable and selectable, not just painted over." },
       { title: "Private by default", body: "Your PDF is edited on your own device. It isn't uploaded to our servers, and nothing is kept after you close the tab." },
       { title: "Everything in one editor", body: "Text, whiteout, highlights, drawings, shapes, images, signatures, comments, links, form fields and page organising." },
-      { title: "Free, no watermark", body: "No watermark and no trial. Start editing straight away on any device; a free one-click Google sign-in unlocks signatures, stamps, extra pages and font styles." },
+      { title: "Free, no watermark", body: `No watermark and no trial. Start editing straight away on any device. ${EXTRAS_NOTE}` },
     ],
     sections: [
       {
@@ -57,7 +58,7 @@ export const editContent: ToolContent[] = [
       { who: "HR and admin teams", what: "Update policy documents, sign letters and add comments for colleagues." },
     ],
     faq: [
-      { q: "Is this PDF editor really free?", a: "Yes. Editing, annotating and downloading are free, with no watermark and no trial period. Signatures, stamps, adding pages and font styles need a free one-click Google sign-in." },
+      { q: "Is this PDF editor really free?", a: `Yes. Editing, annotating and downloading are free, with no watermark and no trial period. ${EXTRAS_NOTE}` },
       { q: "Can I edit the existing text in my PDF?", a: "Yes. Double-click any word or sentence with the Select tool and type. The original text is removed from the PDF and replaced at the same position, size and style." },
       { q: "Is my PDF uploaded to a server?", a: "No. The PDF editor runs entirely in your browser, so your document stays on your device." },
       { q: "Will the edited PDF have a watermark?", a: "No. Downloaded files are clean PDFs with no watermark or branding added." },
@@ -100,7 +101,7 @@ export const editContent: ToolContent[] = [
       { who: "Small businesses", what: "Add a reference number or note to an invoice before sending it." },
     ],
     faq: [
-      { q: "How do I type on a PDF for free?", a: "Open the PDF in PDFella, choose Add text, click on the page and type. Then save and download. It's free; changing fonts and bold or italic styles needs a free one-click Google sign-in." },
+      { q: "How do I type on a PDF for free?", a: `Open the PDF in PDFella, choose Add text, click on the page and type. Then save and download. ${FONTS_NOTE}` },
       { q: "Can I change the font of added text?", a: "Yes. Choose Helvetica (Arial), Times or Courier, set any size, and make text bold, italic or underlined." },
       { q: "Will the text be searchable?", a: "Yes. Text is written into the PDF as real text, so it can be searched and selected." },
       { q: "Can I add text in other languages?", a: "Yes. Latin-script text is written as real text; other scripts such as Devanagari or Chinese are added as a high-resolution image so they display correctly." },
@@ -271,7 +272,7 @@ export const editContent: ToolContent[] = [
       { q: "Will my comments show in Adobe Acrobat?", a: "Yes. Sticky notes are saved as standard PDF text annotations." },
       { q: "Can I create custom stamps?", a: "Yes. Place a stamp and edit its text and colour." },
       { q: "Can I add hyperlinks to a PDF?", a: "Yes. Use the Link tool to make any area link to a web address or email." },
-      { q: "Is annotating free?", a: "Yes, all annotation tools are free. Comments, checkmarks, shapes and links work without an account; stamps need a free one-click Google sign-in." },
+      { q: "Is annotating free?", a: `${ANNOTATE_NOTE}` },
       { q: "Is my document uploaded?", a: "No. Annotation runs in your browser." },
       { q: "Can I annotate on a phone?", a: "Yes. The editor adapts to phones and tablets with a bottom tool bar." },
     ],

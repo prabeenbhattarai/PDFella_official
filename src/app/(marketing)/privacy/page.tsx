@@ -1,32 +1,72 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Prose } from "@/components/marketing/prose";
 import { brand } from "@/lib/brand";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
-import { shareEnabled, tools } from "@/lib/tools";
+import { REWARD_HOURS } from "@/lib/reward";
+import { cloudToolsEnabled, isComingSoon, shareEnabled, tools } from "@/lib/tools";
 
-export const metadata: Metadata = { title: "Privacy Policy", description: `How ${brand.name} handles your files and data: what stays in your browser, what is uploaded for conversion, and what we never collect.`, alternates: { canonical: "/privacy" } };
+export const metadata: Metadata = { title: "Privacy Policy", description: `How ${brand.name} handles your files and data: what stays on your device, what we keep about your account, and who helps us run the service.`, alternates: { canonical: "/privacy" } };
+
+// Each section only describes what's switched on, so this page never promises more than the site does.
+const plansOn = process.env.NEXT_PUBLIC_PLANS_ENABLED === "1";
+const billingOn = process.env.NEXT_PUBLIC_BILLING_ENABLED === "1";
 
 export default function PrivacyPage() {
   const local = tools.filter((t) => t.engine === "browser").map((t) => t.name);
   const cloud = tools.filter((t) => t.engine === "server" && !t.storage).map((t) => t.name);
+  const soon = tools.filter(isComingSoon).map((t) => t.name);
+  const email = <a className="text-accent underline" href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>;
   return (
-    <Prose title="Privacy" updated="October 2026">
-      <p>This page explains, in plain language, what happens to the documents you work on with {brand.name}. We only make claims here that our software actually enforces.</p>
+    <Prose title="Privacy" updated="November 2026">
+      <p>This page explains what happens to your documents and your information when you use {brand.name}.</p>
 
-      <h2>Files processed in your browser</h2>
-      <p>These tools run entirely on your device. Your file is read into your browser&apos;s memory and is <strong>never sent to our servers</strong>:</p>
+      <h2>Your documents</h2>
+      <p>These tools run on your device. Your file is read by your browser and <strong>isn&apos;t sent to our servers</strong>:</p>
       <p className="text-sm">{local.join(" · ")}</p>
-      <p>While you edit, the editor keeps an automatic recovery copy in your browser&apos;s local storage (IndexedDB) so you can restore your work after an accidental refresh. It never leaves your device, expires after 7 days, and is removed when you choose <em>Discard</em> or start a new document.</p>
+      {!cloudToolsEnabled && soon.length > 0 && <p>These tools are marked Coming soon and aren&apos;t available yet, so they don&apos;t process your files: {soon.join(", ")}.</p>}
+      <p>We don&apos;t use your documents to train AI models, and we don&apos;t read or sell them.</p>
 
-      <h2>Files processed in the cloud</h2>
-      <p>These tools need server software (such as OCR or Office conversion) and therefore upload your file:</p>
-      <p className="text-sm">{cloud.join(" · ")}</p>
+      {cloudToolsEnabled && (
+        <>
+          <h2>Files processed in the cloud</h2>
+          <p>These tools need server software and upload your file:</p>
+          <p className="text-sm">{cloud.join(" · ")}</p>
+          <ul>
+            <li>Files are uploaded over HTTPS to private storage using a short-lived signed link.</li>
+            <li>Files are deleted when you download the result, or by a scheduled cleanup after {JOB_TTL_MINUTES} minutes.</li>
+            <li>Job records contain technical details (tool, file size, status and times), not file names or contents.</li>
+          </ul>
+        </>
+      )}
+
+      <h2>What&apos;s saved on your device</h2>
+      <p>These stay in your browser or the desktop app and aren&apos;t uploaded. Clearing your browser data removes them.</p>
       <ul>
-        <li>Files are uploaded over HTTPS directly to a private storage bucket using a short-lived, single-use signed link. The bucket is never publicly readable.</li>
-        <li>Each job is processed in an isolated container without general internet access.</li>
-        <li>Input and output files are deleted as soon as you download the result. If you don&apos;t, a scheduled cleanup deletes them after <strong>{JOB_TTL_MINUTES} minutes</strong>, and a storage lifecycle rule permanently removes anything older than 24 hours as a backstop.</li>
-        <li>Job records contain only technical metadata (tool, file size, status, timestamps), never file names or contents, and they expire automatically.</li>
+        <li><strong>Recovery copy:</strong> while you edit, the editor saves a copy of your document, including any images and signatures in it, so you can restore your work after a refresh. It&apos;s removed when you choose <em>Discard</em> or start a new document, and isn&apos;t offered after 7 days.</li>
+        <li><strong>Signatures:</strong> signatures you create aren&apos;t uploaded. They&apos;re kept while your tab is open, and can also be part of the recovery copy.</li>
+        <li><strong>Templates and custom stamps</strong> that you save.</li>
+        <li><strong>Preferences,</strong> such as your theme, recently used tools and whether you&apos;ve seen the guide{plansOn ? ", and how many documents you've opened today" : ""}.</li>
       </ul>
+
+      <h2 id="accounts">Your account</h2>
+      <p>{plansOn ? `You can use ${brand.name}'s free tools without an account. Buying a plan needs a Google sign-in, because your plan is kept on your account.` : `You can use most of ${brand.name} without an account. Signing in with Google unlocks signatures, stamps, adding pages and font styles in the editor.`} Sign-in is handled by Google and Firebase Authentication.</p>
+      <p>If you sign in, we keep:</p>
+      <ul>
+        <li>Your name, email address, profile photo and Google account ID.</li>
+        <li>When you created your account and last signed in.</li>
+        <li>The country we detected at your last signed-in visit, worked out from your IP address.</li>
+        <li>If you use the desktop app: your operating system, app version, when you first and last used it, and how many times you&apos;ve opened it.</li>
+        {plansOn && <li>Your plan and when it ends.</li>}
+      </ul>
+      <p>We use this to sign you in, provide your plan and run the service, and we can see it in our admin panel. Your documents aren&apos;t linked to your account or stored on it.</p>
+
+      {billingOn && (
+        <>
+          <h2 id="payments">Payments</h2>
+          <p>Payments are handled by Stripe, and we never see or store your full card details. Before you pay, we create a Stripe customer using your account ID, name and email, and note the plan you chose. We then keep your Stripe customer ID, your subscription&apos;s status, billing period and end date on your account. Stripe holds your payment details under its own privacy policy.</p>
+        </>
+      )}
 
       {shareEnabled && (
         <>
@@ -40,46 +80,43 @@ export default function PrivacyPage() {
         </>
       )}
 
-      <h2>What we never do</h2>
-      <ul>
-        <li>We do not use your documents to train AI models.</li>
-        <li>We do not read, analyse, index or sell document contents.</li>
-        <li>We do not log document text, file names, signatures or form values.</li>
-        <li>We do not require an account to use any tool. A free account only unlocks a few editor features.</li>
-      </ul>
-
-      <h2 id="accounts">Accounts</h2>
-      <p>You can use {brand.name} without an account. Signing in with Google is optional and unlocks signatures, stamps, adding pages and font styles in the editor.</p>
-      <ul>
-        <li>Sign-in is handled by Google and Firebase Authentication. We receive your name, email address, profile photo and a Google account ID, and use them only to sign you in.</li>
-        <li>When you visit while signed in to Google, Google may offer a one-tap sign-in. Nothing is shared with us unless you choose an account.</li>
-        <li>Your documents are not linked to your account and are never uploaded to it.</li>
-        <li>To delete your account, email us and we&apos;ll remove it.</li>
-      </ul>
-
-      <h2>Signatures</h2>
-      <p>Signatures you create are kept only in the memory of the current browser tab and are discarded when you close it. We never upload or store them.</p>
-
-      <h2>Analytics</h2>
-      <p>We use <a className="text-accent underline" href="https://posthog.com" rel="noopener">PostHog</a>, hosted in the EU, to understand how {brand.name} is used: which pages are visited, roughly where visitors come from (country and referring site), which buttons are clicked, and anonymous events such as “a merge was completed” together with coarse details like page count or a file-size bucket.</p>
-      <ul>
-        <li>No cookies or browser storage are used for analytics, and visitors are not identified across days.</li>
-        <li>Clicks are recorded without the text on the page, and inside the editor only our own anonymous events are sent.</li>
-        <li>Events never include file names, document text, signatures or anything you typed. We do not record sessions.</li>
-      </ul>
-
-      {process.env.NEXT_PUBLIC_BILLING_ENABLED === "1" && (
+      {plansOn && (
         <>
-          <h2 id="payments">Payments</h2>
-          <p>Payments are handled by Stripe. We never see or store your card details. We keep your Stripe customer ID and your plan on your account, and Stripe keeps your payment and billing details under its own privacy policy.</p>
+          <h2 id="welcome-offer">First-time offer</h2>
+          <p>We may ask first-time visitors how they found us, and offer a paid feature for {REWARD_HOURS} hours in return. To check the offer is only claimed once, we keep a scrambled version (a hash) of your IP address, not the address itself, and we check it when deciding whether to show you the offer. If you claim it, we also keep your answer, your chosen feature and its end date on your account, and your answer is counted separately in our survey results. These are stored with Google Firebase.</p>
         </>
       )}
 
-      <h2>Third parties</h2>
-      <p>Cloud processing runs on Google Cloud (Cloud Run and Cloud Storage) in our own project. No document is sent to any other third-party service unless a tool explicitly says so.</p>
+      <h2>Analytics</h2>
+      <p>We use <a className="text-accent underline" href="https://posthog.com" rel="noopener">PostHog</a>, hosted in the EU, to understand how {brand.name} is used. It records:</p>
+      <ul>
+        <li>The pages you visit and the site that sent you here.</li>
+        <li>Your approximate location, worked out from your IP address, and your device, browser and operating system.</li>
+        <li>Which buttons are clicked, without the text on the page. Inside the editor, only our own events are sent.</li>
+        <li>Events such as &ldquo;a merge was completed&rdquo;, with details like the tool, page count, file type and a file-size range.</li>
+      </ul>
+      <p><strong>If you&apos;re not signed in,</strong> analytics uses no cookies or browser storage, and you aren&apos;t identified across days.</p>
+      <p><strong>If you&apos;re signed in,</strong> this activity is tagged with your account ID, so we can see it against your email address in our admin panel, across visits.</p>
+      <p>Analytics events don&apos;t include file names, document text, signatures or anything you typed, and we don&apos;t record sessions.</p>
+
+      <h2>Companies that help us run {brand.name}</h2>
+      <ul>
+        <li><strong>Vercel</strong> hosts the website, and handles your IP address and requests to do so.</li>
+        <li><strong>Google (Firebase)</strong> handles sign-in and stores account details.</li>
+        <li><strong>PostHog</strong> provides analytics.</li>
+        {billingOn && <li><strong>Stripe</strong> processes payments.</li>}
+        <li><strong>GitHub</strong> hosts the desktop app, so it receives your IP address when you visit the download page or download the app.</li>
+      </ul>
+      <p>These companies may store information outside Australia.</p>
+
+      <h2>Your choices</h2>
+      <p>You can ask us for a copy of the information we hold about you, ask us to correct it, or ask us to delete your account, by emailing {email}.{billingOn ? " Please cancel any subscription first. Stripe and we may need to keep payment records where the law requires." : ""} If you&apos;re unhappy with how we&apos;ve handled your information, please contact us first. In Australia, you can also complain to the Office of the Australian Information Commissioner.</p>
+
+      <h2>Changes</h2>
+      <p>We&apos;ll update this page when what we do changes, and change the date at the top.</p>
 
       <h2>Contact</h2>
-      <p>Questions? Email <a className="text-accent underline" href={`mailto:${brand.supportEmail}`}>{brand.supportEmail}</a>.</p>
+      <p>Questions? Email {email}. See also our <Link className="text-accent underline" href="/terms">terms</Link>.</p>
     </Prose>
   );
 }

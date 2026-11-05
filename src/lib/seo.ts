@@ -3,11 +3,13 @@
  * Everything here describes the product truthfully: no ratings, reviews or
  * figures that don't exist.
  */
+import { toolPlan } from "./plan-copy";
+import { PRICES } from "./pricing";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { brand } from "./brand";
 import { JOB_TTL_MINUTES, limitsFor } from "./limits";
-import { categories, type Tool, cloudToolsEnabled } from "./tools";
+import { categories, type Tool, cloudToolsEnabled, accountBadge } from "./tools";
 import { kindLabel } from "./security/filetype";
 import type { ToolContent } from "@/content/seo";
 import { CONTENT_UPDATED } from "@/content/seo";
@@ -26,11 +28,11 @@ export function outputFormat(t: Tool): string {
   }
 }
 
-export function keyFacts(t: Tool): [string, string][] {
+export function keyFacts(t: Tool, plan = toolPlan(t.slug)): [string, string][] {
   const mb = Math.round(limitsFor().maxFileBytes / 1024 / 1024);
   return [
-    ["Price", "Free"],
-    ["Account", "Not required"],
+    ["Price", plan ? `${accountBadge(t)}, from $${PRICES[plan].yearly} a month` : "Free"],
+    ["Account", plan ? "Needed for the plan" : "Not required"],
     ["Processing", t.storage ?? (t.engine === "browser" ? "In your browser. Files aren't uploaded" : `Secure cloud. Files deleted within ${JOB_TTL_MINUTES} minutes`)],
     ["Input", [...new Set(t.accepts.map((k) => kindLabel[k]))].join(", ")],
     ["Output", outputFormat(t)],
@@ -109,6 +111,7 @@ export function siteJsonLd() {
 }
 
 export function toolJsonLd(t: Tool, c: ToolContent) {
+  const plan = toolPlan(t.slug);
   const url = absolute(`/${t.slug}`);
   const steps = c.steps.map((s, i) => {
     const shot = s.shot ? shotPath(t.slug, s.shot) : null;
@@ -156,8 +159,8 @@ export function toolJsonLd(t: Tool, c: ToolContent) {
         description: c.metaDescription,
         applicationCategory: "BusinessApplication",
         operatingSystem: "Any (web browser)",
-        isAccessibleForFree: true,
-        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        isAccessibleForFree: !plan,
+        offers: { "@type": "Offer", price: plan ? String(PRICES[plan].yearly * 12) : "0", priceCurrency: "USD" },
         featureList: t.features,
         publisher: { "@id": absolute("/#organization") },
       },

@@ -12,6 +12,7 @@ import { JOB_TTL_MINUTES } from "@/lib/limits";
 import { jpegSize, jsonLdScript, keyFacts, shotPath, toolJsonLd } from "@/lib/seo";
 import { ToolIcon } from "@/components/ui/tool-icon";
 import { ToolCard } from "@/components/marketing/tool-grid";
+import { toolPlan } from "@/lib/plan-copy";
 import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
 import { Faq } from "@/components/marketing/faq";
 import { InView } from "@/components/marketing/in-view";
@@ -252,7 +253,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
         <div className="relative overflow-hidden rounded-[2rem] bg-accent px-6 py-16 text-center text-accent-ink sm:px-16">
           <div className="pointer-events-none absolute inset-0 opacity-[.12] [background-image:radial-gradient(currentColor_1px,transparent_1.2px)] [background-size:20px_20px]" aria-hidden />
           <h2 className="relative font-display text-4xl leading-tight sm:text-5xl">Ready to {c.howToTitle.replace(/^How to /, "")}?</h2>
-          <p className="relative mx-auto mt-3 max-w-xl text-lg opacity-85">Free, private and done in seconds. {accountNeed(tool) === "required" ? "Just one click to sign in." : "No account needed to start."}</p>
+          <p className="relative mx-auto mt-3 max-w-xl text-lg opacity-85">{toolPlan(tool.slug) ? `Private and done in seconds. ${accountBadge(tool)}.` : <>Free, private and done in seconds. {accountNeed(tool) === "required" ? "Just one click to sign in." : "No account needed to start."}</>}</p>
           <a href="#top" className="relative mt-8 inline-flex h-12 items-center gap-2 rounded-lg bg-accent-ink px-7 font-semibold text-accent shadow-lg transition hover:opacity-90">Start now <ArrowRight className="size-4" /></a>
         </div>
       </section>

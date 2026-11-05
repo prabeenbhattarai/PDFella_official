@@ -45,7 +45,7 @@ export async function requireAdmin(req: Request): Promise<string> {
 let accessToken: { value: string; expires: number } | null = null;
 
 /** OAuth access token for the service account (JWT bearer grant), cached until shortly before it expires. */
-async function googleAccessToken(): Promise<string> {
+export async function googleAccessToken(): Promise<string> {
   if (accessToken && accessToken.expires > Date.now() + 60_000) return accessToken.value;
   const { sa, key } = await serviceAccountKey();
   const now = Math.floor(Date.now() / 1000);
@@ -395,7 +395,7 @@ export const accountAttributes = async (uid: string) => attributes(await lookupA
 /** Who an account belongs to, from Firebase itself. */
 export async function accountIdentity(uid: string) {
   const u = await lookupAccount(uid);
-  return { email: u.email ?? null, name: u.displayName ?? null, emailVerified: !!u.emailVerified, disabled: !!u.disabled };
+  return { email: u.email ?? null, name: u.displayName ?? null, emailVerified: !!u.emailVerified, disabled: !!u.disabled, createdAt: u.createdAt ? Number(u.createdAt) : null };
 }
 
 /** Change fields stored on an account, keeping the others. `null` removes a field. */
@@ -493,6 +493,8 @@ export interface UserDetail {
   country: string | null;
   desktop: DesktopMark | null;
   plan: { id: string; until: string | null } | null;
+  /** The welcome survey reward, if they've claimed it. */
+  reward: { feature: string; until: string; source?: string } | null;
   /** Their Stripe record, if they've ever started buying. `testMode` marks a test purchase. */
   billing: {
     customer: string; testMode: boolean;
@@ -558,6 +560,7 @@ export async function userDetail(uid: string): Promise<UserDetail | null> {
     country: typeof attrs.country === "string" ? attrs.country : null,
     desktop: (attrs.desktop as DesktopMark | undefined) ?? null,
     plan: (attrs.plan as { id: string; until: string | null } | undefined) ?? null,
+    reward: (attrs.welcomeReward as UserDetail["reward"] | undefined) ?? null,
     billing: attrs.stripeCustomer || attrs.stripeCustomerTest ? {
       customer: String(attrs.stripeCustomer ?? attrs.stripeCustomerTest),
       testMode: !attrs.stripeCustomer,
