@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ArrowRight, CreditCard, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { useAuth } from "@/lib/auth/store";
 import { openBillingPortal, waitForPlan } from "@/lib/billing-client";
@@ -13,7 +12,7 @@ import { rewardLabel } from "@/lib/reward";
 import { PRICES } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { SubscriptionView } from "@/lib/server/billing-plan";
-import { CancelDialog, CancelZone, SorryDialog } from "./cancel-zone";
+import { CancelDialog, CancelZone, DowngradeDialog, SorryDialog, UpgradeConsentDialog } from "./cancel-zone";
 
 type Billing = "monthly" | "yearly";
 type Plan = "lite" | "pro";
@@ -188,13 +187,9 @@ export function AccountPanel() {
         <CancelZone planName={NAMES[sub.plan ?? tier]} periodEnd={day(sub.periodEnd)} cancelled={!!ending} undoUntil={sub.undoUntil} busy={busy === "resume"} onCancel={() => setConfirming(true)} onUndo={() => void change(false)} />
       )}
 
-      <Dialog open={!!changing} onClose={() => setChanging(null)} title={changing ? `Switch to ${NAME[changing.to.plan]} ${changing.to.billing}?` : ""}
-        description={changing ? (changing.timing === "now"
-          ? `You'll pay ${money(changing.charge?.amount ?? null, changing.charge?.currency ?? null)} today, which accounts for what you've already paid. Your new plan starts straight away, then ${priceLine(changing.to)}.`
-          : `You keep ${NAMES[sub?.plan ?? tier]} until ${day(sub?.periodEnd ?? null)}, with nothing to pay now. Then you move to ${NAME[changing.to.plan]} at ${priceLine(changing.to)}.`) : undefined}
-        footer={<><Button variant="ghost" onClick={() => setChanging(null)}>Not now</Button><Button disabled={busy === "switch"} onClick={() => void applyChange()}>{busy === "switch" && <Loader2 className="animate-spin" />} Confirm</Button></>}>
-        <p className="text-[14px] text-ink-3">You can cancel at any time.</p>
-      </Dialog>
+      <DowngradeDialog open={changing?.timing === "period_end"} planName={NAMES[sub?.plan ?? tier]} target={changing ? `${NAME[changing.to.plan]} ${changing.to.billing}` : ""} price={changing ? priceLine(changing.to) : ""} periodEnd={day(sub?.periodEnd ?? null)} busy={busy === "switch"} onClose={() => setChanging(null)} onConfirm={() => void applyChange()} />
+
+      <UpgradeConsentDialog open={changing?.timing === "now"} target={changing ? `${NAME[changing.to.plan]} ${changing.to.billing}` : ""} amount={changing?.charge ? money(changing.charge.amount, changing.charge.currency) : null} price={changing ? priceLine(changing.to) : ""} busy={busy === "switch"} onClose={() => setChanging(null)} onConfirm={() => void applyChange()} />
 
       <CancelDialog open={confirming} planName={NAMES[sub?.plan ?? tier]} periodEnd={day(sub?.periodEnd ?? null)} busy={busy === "cancel"} onClose={() => setConfirming(false)} onConfirm={() => void change(true)} />
       <SorryDialog open={sorry} planName={NAMES[sub?.plan ?? tier]} periodEnd={day(sub?.periodEnd ?? null)} onClose={() => setSorry(false)} />

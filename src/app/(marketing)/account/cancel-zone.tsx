@@ -71,6 +71,46 @@ export function CancelDialog({ open, planName, periodEnd, busy, onClose, onConfi
   );
 }
 
+/** A plan change that only goes ahead once they've typed the word. */
+function TypedConsentDialog({ open, title, word, confirmLabel, ready = true, busy, onClose, onConfirm, children }: { open: boolean; title: string; word: string; confirmLabel: string; ready?: boolean; busy: boolean; onClose: () => void; onConfirm: () => void; children: React.ReactNode }) {
+  const [typed, setTyped] = useState("");
+  useEffect(() => { if (open) setTyped(""); }, [open]);
+  const allowed = typed.trim().toLowerCase() === word && ready && !busy;
+  return (
+    <Dialog open={open} onClose={onClose} title={title}
+      footer={<><Button variant="ghost" onClick={onClose}>Keep my plan</Button><Button disabled={!allowed} onClick={onConfirm} data-testid={`confirm-${word}`}>{busy && <Loader2 className="animate-spin" />} {confirmLabel}</Button></>}>
+      <form onSubmit={(e) => { e.preventDefault(); if (allowed) onConfirm(); }}>
+        <ul className="list-disc space-y-2 pl-5 text-[14px] text-ink-2" data-testid={`${word}-policy`}>{children}</ul>
+        <label htmlFor={`confirm-${word}-word`} className="mt-4 block text-[14px] text-ink-2">Type <strong className="text-ink">{word}</strong> to confirm</label>
+        <Input id={`confirm-${word}-word`} data-autofocus className="mt-1.5" autoComplete="off" autoCapitalize="off" spellCheck={false} placeholder={word} value={typed} onChange={(e) => setTyped(e.target.value)} data-testid={`confirm-${word}-word`} />
+      </form>
+    </Dialog>
+  );
+}
+
+/** Moving down: nothing is charged, and it happens when the paid period ends. */
+export function DowngradeDialog({ open, planName, target, price, periodEnd, busy, onClose, onConfirm }: { open: boolean; planName: string; target: string; price: string; periodEnd: string; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <TypedConsentDialog open={open} title={`Downgrade to ${target}?`} word="downgrade" confirmLabel="Confirm downgrade" busy={busy} onClose={onClose} onConfirm={onConfirm}>
+      <li>You keep {planName} until <strong className="text-ink">{periodEnd}</strong>, the end of the period you&apos;ve already paid for. Your billing dates are based on the date you first purchased.</li>
+      <li>On that date, you move to {target} automatically, at {price}.</li>
+      <li>There&apos;s nothing to pay now, and you can change your mind any time before that date.</li>
+    </TypedConsentDialog>
+  );
+}
+
+/** Moving up charges the saved card as soon as they confirm, with no Stripe page, so they consent to the exact amount here. */
+export function UpgradeConsentDialog({ open, target, amount, price, busy, onClose, onConfirm }: { open: boolean; target: string; amount: string | null; price: string; busy: boolean; onClose: () => void; onConfirm: () => void }) {
+  return (
+    <TypedConsentDialog open={open} title={`Upgrade to ${target}?`} word="upgrade" confirmLabel={amount ? `Pay ${amount} now` : "Pay now"} ready={!!amount} busy={busy} onClose={onClose} onConfirm={onConfirm}>
+      <li>We&apos;ll charge <strong className="text-ink">{amount ?? "the difference"}</strong> to the card saved on your subscription as soon as you confirm. <strong className="text-ink">You won&apos;t see a payment page or be asked for your card again.</strong></li>
+      <li>This amount accounts for what you&apos;ve already paid.</li>
+      <li>{target} starts straight away. After that, it renews at {price} until you cancel.</li>
+      <li>If your card is declined, you won&apos;t be charged and your plan stays as it is.</li>
+    </TypedConsentDialog>
+  );
+}
+
 /** A short goodbye after cancelling, with what happens next. */
 export function SorryDialog({ open, planName, periodEnd, onClose }: { open: boolean; planName: string; periodEnd: string; onClose: () => void }) {
   return (
