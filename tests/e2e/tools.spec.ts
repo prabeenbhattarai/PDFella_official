@@ -143,6 +143,8 @@ test("save a template, then fill it from a spreadsheet", async ({ page }) => {
   const field = form.getForm().getFields().find((f) => f.constructor.name === "PDFTextField")!.getName();
 
   await page.goto("/pdf-templates");
+  // A file chosen before the page has finished loading isn't picked up.
+  await expect.poll(() => page.getByTestId("file-input").evaluate((el) => Object.keys(el).some((k) => k.startsWith("__reactProps")))).toBe(true);
   await page.getByTestId("file-input").setInputFiles(fixturePath("form.pdf"));
   const row = page.getByTestId("template-row");
   await expect(row).toContainText("form.pdf");
