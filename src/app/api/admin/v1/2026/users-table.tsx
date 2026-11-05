@@ -97,6 +97,7 @@ export function UsersTable({ refreshKey }: { refreshKey: number }) {
                 <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.createdAt)}</td>
                 <td className="px-5 py-3 whitespace-nowrap text-ink-2">{when(r.lastSignInAt)}</td>
                 <td className="px-5 py-3 whitespace-nowrap">
+                  {r.plan && <span className="mr-1.5 inline-flex rounded-md bg-[#ffc83d]/25 px-2 py-0.5 text-[12px] font-semibold text-ink capitalize" data-testid="plan-badge">{r.plan}</span>}
                   {r.desktopLastUsed
                     ? <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-soft px-2 py-0.5 text-[12px] font-semibold text-accent" title={`Last used ${when(r.desktopLastUsed)}`}><Monitor className="size-3.5" /> Uses app</span>
                     : <span className="text-ink-3">—</span>}

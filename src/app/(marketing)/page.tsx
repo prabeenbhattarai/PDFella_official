@@ -1,3 +1,4 @@
+import { cloudToolsEnabled } from "@/lib/tools";
 import Link from "next/link";
 import {
   ArrowRight, Check, GraduationCap, Briefcase, Scale, Home, Users, Calculator, PenTool,
@@ -17,9 +18,9 @@ import { JOB_TTL_MINUTES, limitsFor } from "@/lib/limits";
 
 const faq = [
   { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
-  { q: `Is ${brand.name} free to use?`, a: "Yes. Every tool is free with generous limits, and most work without an account. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in. Heavier cloud processing (OCR, Office conversion) has a daily allowance." },
+  { q: `Is ${brand.name} free to use?`, a: `Yes. Every tool is free with generous limits, and most work without an account. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in.${cloudToolsEnabled ? " Heavier cloud processing (OCR, Office conversion) has a daily allowance." : ""}` },
   { q: "Do I need to create an account?", a: "Not for most tools. Drop a file and start working. Signatures, stamps, adding pages and font styles in the editor need a free one-click Google sign-in." },
-  { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` },
+  { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. ${cloudToolsEnabled ? `Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` : "OCR and Office conversions are coming soon."}` },
   { q: "Can I really edit the existing text in a PDF?", a: "Yes. Double-click any word or sentence and type. The original text is removed from the PDF and replaced at the same position, size and style." },
   { q: "My PDF has a password. Can I still edit it?", a: "Yes. PDFs that only restrict printing, copying or editing open automatically. If a PDF needs a password to open, enter it once and the document becomes fully editable." },
   { q: "Is redaction permanent?", a: "Yes. Redacted content is removed from the file, not just covered. Try selecting or searching the redacted text afterwards. It won't be there." },
@@ -34,17 +35,23 @@ const useCases = [
   { icon: Users, t: "HR", d: "Onboarding forms, offer letters, policy acknowledgements.", c: "var(--cat-forms)" },
   { icon: Calculator, t: "Accountants", d: "Extract tables to Excel, stamp invoices, protect statements.", c: "var(--cat-optimise)" },
   { icon: PenTool, t: "Designers", d: "Mark up proofs with shapes, arrows and sticky notes.", c: "var(--cat-edit)" },
-  { icon: Landmark, t: "Public sector", d: "Searchable archives with OCR, standard forms, secure sharing.", c: "var(--cat-convert)" },
+  { icon: Landmark, t: "Public sector", d: "Standard forms, signatures and permanent redaction.", c: "var(--cat-convert)" },
 ];
 
 // What PDFella actually does today, with the catch for each row. Keep this in step with lib/tools.ts and lib/limits.ts.
 const free = limitsFor("free");
-const facts: [string, string, true | string][] = [
+type FactRow = [string, string, true | string];
+const facts: FactRow[] = [
   ["Edit existing text, sign and annotate", "Signatures, stamps, extra pages and font styles need a free Google sign-in", true],
   ["Merge, split, compress and organise pages", "Runs in your browser", true],
-  ["Convert to and from Word, Excel and PowerPoint", "PDF to Word runs in your browser; the other conversions use secure cloud", true],
-  ["OCR for scanned PDFs", `Secure cloud, up to ${free.serverTasksPerDay} cloud tasks a day`, true],
-  ["Your files stay on your device", `Cloud tools delete files within ${JOB_TTL_MINUTES} minutes`, "Most tools"],
+  ...(cloudToolsEnabled ? [
+    ["Convert to and from Word, Excel and PowerPoint", "PDF to Word runs in your browser; the other conversions use secure cloud", true],
+    ["OCR for scanned PDFs", `Secure cloud, up to ${free.serverTasksPerDay} cloud tasks a day`, true],
+  ] as FactRow[] : [
+    ["Convert PDFs to Word, images and text", "Runs in your browser. Excel, PowerPoint and Office to PDF are coming soon", true],
+    ["OCR for scanned PDFs", "Making scanned PDFs searchable is on the way", "Coming soon"],
+  ] as FactRow[]),
+  cloudToolsEnabled ? ["Your files stay on your device", `Cloud tools delete files within ${JOB_TTL_MINUTES} minutes`, "Most tools"] : ["Your files stay on your device", "Today's tools all run in your browser", true],
   ["Account", "Most tools work without one", "Optional"],
   ["Phone and tablet", "Works in any modern browser", true],
   ["Install", "Use it in the browser, or get the app for Mac and Windows", "Optional"],
@@ -53,10 +60,11 @@ const facts: [string, string, true | string][] = [
 
 const tickerItem = "flex items-center gap-3 text-[15px] font-semibold whitespace-nowrap text-ink-2 transition-colors hover:text-accent";
 
-const formats: [string, string, "PDF" | "DOCX" | "JPG" | "XLSX" | "PPTX" | "PNG" | "TXT"][] = [
-  ["PDF to Word", "/pdf-to-word", "DOCX"], ["Word to PDF", "/word-to-pdf", "PDF"], ["PDF to JPG", "/pdf-to-jpg", "JPG"], ["JPG to PDF", "/jpg-to-pdf", "PDF"],
-  ["PDF to Excel", "/pdf-to-excel", "XLSX"], ["PDF to PowerPoint", "/pdf-to-powerpoint", "PPTX"], ["Merge PDF", "/merge-pdf", "PDF"], ["Split PDF", "/split-pdf", "PDF"],
-  ["Compress PDF", "/compress-pdf", "PDF"], ["Sign PDF", "/sign-pdf", "PDF"], ["Redact PDF", "/redact-pdf", "PDF"], ["OCR PDF", "/ocr-pdf", "PNG"],
+type FormatRow = [string, string, "PDF" | "DOCX" | "JPG" | "XLSX" | "PPTX" | "PNG" | "TXT"];
+const formats: FormatRow[] = [
+  ["PDF to Word", "/pdf-to-word", "DOCX"], ...(cloudToolsEnabled ? [["Word to PDF", "/word-to-pdf", "PDF"]] as FormatRow[] : []), ["PDF to JPG", "/pdf-to-jpg", "JPG"], ["JPG to PDF", "/jpg-to-pdf", "PDF"],
+  ...(cloudToolsEnabled ? [["PDF to Excel", "/pdf-to-excel", "XLSX"], ["PDF to PowerPoint", "/pdf-to-powerpoint", "PPTX"]] as FormatRow[] : []), ["Merge PDF", "/merge-pdf", "PDF"], ["Split PDF", "/split-pdf", "PDF"],
+  ["Compress PDF", "/compress-pdf", "PDF"], ["Sign PDF", "/sign-pdf", "PDF"], ["Redact PDF", "/redact-pdf", "PDF"], ...(cloudToolsEnabled ? [["OCR PDF", "/ocr-pdf", "PNG"]] as FormatRow[] : []),
   ["Protect PDF", "/protect-pdf", "PDF"], ["Unlock PDF", "/unlock-pdf", "PDF"], ["Watermark PDF", "/watermark-pdf", "PDF"], ["Add page numbers", "/add-page-numbers-to-pdf", "TXT"],
 ];
 
@@ -103,7 +111,7 @@ export default function LandingPage() {
         totalTime: "PT2M",
         estimatedCost: { "@type": "MonetaryAmount", currency: "USD", value: "0" },
         step: [
-          { "@type": "HowToStep", position: 1, name: "Upload your PDF file", text: "Drag your PDF onto the upload area or choose it from your device. Word, Excel and images work too." },
+          { "@type": "HowToStep", position: 1, name: "Upload your PDF file", text: `Drag your PDF onto the upload area or choose it from your device. ${cloudToolsEnabled ? "Word, Excel and images work too." : "Images work too."}` },
           { "@type": "HowToStep", position: 2, name: "Edit, customise, sign, merge and more", text: "Double-click text to change it, highlight, add signatures, reorder pages, with undo for everything." },
           { "@type": "HowToStep", position: 3, name: "Download the updated file", text: "Click Save changes, rename the file if you like, and download it." },
         ],
@@ -124,7 +132,7 @@ export default function LandingPage() {
               Everything you need to work with PDFs: edit text, sign, convert, compress, organise and protect documents right in your browser, in seconds.
             </p>
             <ul className="mt-6 hidden max-w-xl gap-2.5 text-[15px] text-ink-2 sm:grid sm:grid-cols-2">
-              {["Edit existing text by double-click", "PDF ⇄ Word, Excel, images", "Sign, redact and annotate", "Files stay on your device"].map((x) => (
+              {["Edit existing text by double-click", cloudToolsEnabled ? "PDF ⇄ Word, Excel, images" : "PDF to Word and images", "Sign, redact and annotate", "Files stay on your device"].map((x) => (
                 <li key={x} className="flex items-center gap-2.5"><span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-accent-soft"><Check className="size-3 text-accent" /></span>{x}</li>
               ))}
             </ul>
@@ -182,7 +190,7 @@ export default function LandingPage() {
           <Heading eyebrow="How to edit a PDF online" title="Simple steps to get started" />
           <InView as="ol" className="grid items-start gap-10 lg:grid-cols-[1fr_110px_1fr_110px_1fr] lg:gap-4">
             {[
-              { n: 1, art: <StepUpload />, t: "Upload your PDF file", d: "Drag it in or pick it from your device. Word, Excel and images work too." },
+              { n: 1, art: <StepUpload />, t: "Upload your PDF file", d: cloudToolsEnabled ? "Drag it in or pick it from your device. Word, Excel and images work too." : "Drag it in or pick it from your device. Images work too." },
               { n: 2, art: <StepEdit />, t: "Edit, customise, sign, merge and more", d: "Change text, highlight, add signatures, reorder pages, with undo for everything." },
               { n: 3, art: <StepDownload />, t: "Download the updated file", d: "Rename it and download, or keep working with another tool." },
             ].flatMap((s, i) => [
@@ -243,12 +251,12 @@ export default function LandingPage() {
       {/* ───────────── Feature tour */}
       <section className="py-16">
         <div className="wrap">
-          <div className="pt-8"><Heading eyebrow="Features" title="Everything you need to work with PDFs" intro="One editor for changing text, converting formats, annotating, signing, OCR and organising pages." /></div>
+          <div className="pt-8"><Heading eyebrow="Features" title="Everything you need to work with PDFs" intro={`One editor for changing text, converting formats, annotating, signing${cloudToolsEnabled ? ", OCR" : ""} and organising pages.`} /></div>
           <Feature eyebrow="Edit" title="Edit PDF text directly, not just on top." body="Double-click any sentence to edit the original text in place. Add new text with full typographic control, cover content with whiteout, insert images and shapes, with unlimited undo." bullets={["Edit existing text", "Fonts, sizes, colours", "Whiteout and replace", "Images, shapes, links"]} href="/edit-pdf" cta="Open the editor" visual={<LiveDemo only="edit" />} />
-          <Feature flip eyebrow="Convert" title="Convert PDF to Word, Excel and images in seconds." body="Turn PDFs into Word, Excel, PowerPoint, images and text. PDF to Word runs right in your browser with live progress. Office files and images become clean PDFs." bullets={["PDF ⇄ Word", "PDF → Excel and PowerPoint", "PDF ⇄ JPG / PNG", "Office → PDF"]} href="/pdf-to-word" cta="Convert a PDF" visual={<LiveDemo only="convert" />} />
+          <Feature flip eyebrow="Convert" title={cloudToolsEnabled ? "Convert PDF to Word, Excel and images in seconds." : "Convert PDF to Word and images in seconds."} body={cloudToolsEnabled ? "Turn PDFs into Word, Excel, PowerPoint, images and text. PDF to Word runs right in your browser with live progress. Office files and images become clean PDFs." : "Turn PDFs into Word, images and text, and images into PDFs, right in your browser with live progress."} bullets={cloudToolsEnabled ? ["PDF ⇄ Word", "PDF → Excel and PowerPoint", "PDF ⇄ JPG / PNG", "Office → PDF"] : ["PDF → Word", "PDF → text", "PDF ⇄ JPG / PNG"]} href="/pdf-to-word" cta="Convert a PDF" visual={<LiveDemo only="convert" />} />
           <Feature eyebrow="Annotate" title="Annotate and highlight PDFs like paper." body="Highlight passages, draw freehand, add arrows and clouds, drop sticky-note comments and approval stamps. Comments are saved as real PDF annotations." bullets={["Highlight, underline, strike", "Pen, shapes and arrows", "Sticky-note comments", "Stamps, checks and crosses"]} href="/annotate-pdf" cta="Annotate a PDF" visual={<LiveDemo only="annotate" />} />
           <Feature flip eyebrow="Sign" title="Sign PDFs online from any device." body="Type your name in a handwriting style, draw with a mouse, pen or finger, or upload an image of your signature. Reuse it across the document." bullets={["Typed, drawn or uploaded", "Resize and rotate", "Date and initials fields", "Never stored without consent"]} href="/sign-pdf" cta="Sign a PDF" visual={<LiveDemo only="sign" />} />
-          <Feature eyebrow="OCR" title="Make scanned PDFs searchable with OCR." body="We detect image-only PDFs and offer to recognise their text. The result looks identical, but every word can be searched, selected and copied." bullets={["Automatic scan detection", "100+ languages", "Searchable text layer", "Deskew and rotate"]} href="/ocr-pdf" cta="Run OCR" visual={<LiveDemo only="ocr" />} />
+          {cloudToolsEnabled && <Feature eyebrow="OCR" title="Make scanned PDFs searchable with OCR." body="We detect image-only PDFs and offer to recognise their text. The result looks identical, but every word can be searched, selected and copied." bullets={["Automatic scan detection", "100+ languages", "Searchable text layer", "Deskew and rotate"]} href="/ocr-pdf" cta="Run OCR" visual={<LiveDemo only="ocr" />} />}
           <Feature flip eyebrow="Organise" title="Merge, split and organise PDF pages." body="Drag thumbnails to reorder, rotate crooked scans, delete pages, insert blanks or pages from other files, and split documents apart." bullets={["Drag-and-drop pages", "Merge and split", "Rotate and duplicate", "Page numbers and headers"]} href="/rearrange-pdf-pages" cta="Organise pages" visual={<LiveDemo only="organise" />} />
         </div>
       </section>

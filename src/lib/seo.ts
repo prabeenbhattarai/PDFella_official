@@ -7,7 +7,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { brand } from "./brand";
 import { JOB_TTL_MINUTES, limitsFor } from "./limits";
-import { categories, type Tool } from "./tools";
+import { categories, type Tool, cloudToolsEnabled } from "./tools";
 import { kindLabel } from "./security/filetype";
 import type { ToolContent } from "@/content/seo";
 import { CONTENT_UPDATED } from "@/content/seo";
@@ -101,7 +101,7 @@ export function siteJsonLd() {
         browserRequirements: "Requires a modern browser with JavaScript enabled",
         isAccessibleForFree: true,
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-        featureList: ["Edit PDF text", "Sign PDF", "Merge PDF", "Split PDF", "Compress PDF", "PDF to Word", "JPG to PDF", "OCR", "Redact PDF", "Password protect PDF"],
+        featureList: ["Edit PDF text", "Sign PDF", "Merge PDF", "Split PDF", "Compress PDF", "PDF to Word", "JPG to PDF", ...(cloudToolsEnabled ? ["OCR"] : []), "Redact PDF", "Password protect PDF"],
         publisher: { "@id": absolute("/#organization") },
       },
     ],

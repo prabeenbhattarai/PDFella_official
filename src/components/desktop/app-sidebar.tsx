@@ -7,6 +7,8 @@ import { ChevronRight, Download, Home, PenLine, Search } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme";
 import { ToolIcon } from "@/components/ui/tool-icon";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
+import { isComingSoon } from "@/lib/tools";
 import { AccountButton } from "@/components/auth/account-button";
 import { categories, getTool, tools, toolsIn, type ToolCategory } from "@/lib/tools";
 import { rememberTool } from "@/lib/desktop-app";
@@ -19,10 +21,10 @@ const row = "flex h-8 w-full items-center gap-2.5 rounded-lg px-2.5 text-[13.5px
 const rowIdle = "text-ink-2 hover:bg-surface-2 hover:text-ink";
 const rowOn = "bg-accent-soft text-accent";
 
-function NavLink({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active: boolean }) {
+function NavLink({ href, icon, label, active, soon }: { href: string; icon: React.ReactNode; label: string; active: boolean; soon?: boolean }) {
   return (
     <Link href={href} aria-current={active ? "page" : undefined} className={cn(row, active ? rowOn : rowIdle)}>
-      {icon}<span className="truncate">{label}</span>
+      {icon}<span className="truncate">{label}</span>{soon && <ComingSoonTag className="ml-auto" />}
     </Link>
   );
 }
@@ -51,7 +53,7 @@ export function AppSidebar() {
   const toolLink = (slug: string) => {
     const t = getTool(slug)!;
     return (
-      <NavLink key={t.slug} href={`/${t.slug}`} active={current?.slug === t.slug} label={t.name}
+      <NavLink key={t.slug} href={`/${t.slug}`} active={current?.slug === t.slug} label={t.name} soon={isComingSoon(t)}
         icon={<ToolIcon name={t.icon} className="size-4 shrink-0" />} />
     );
   };

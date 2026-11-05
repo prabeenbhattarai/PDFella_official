@@ -68,6 +68,13 @@ export default function PrivacyPage() {
         <li>Events never include file names, document text, signatures or anything you typed. We do not record sessions.</li>
       </ul>
 
+      {process.env.NEXT_PUBLIC_BILLING_ENABLED === "1" && (
+        <>
+          <h2 id="payments">Payments</h2>
+          <p>Payments are handled by Stripe. We never see or store your card details. We keep your Stripe customer ID and your plan on your account, and Stripe keeps your payment and billing details under its own privacy policy.</p>
+        </>
+      )}
+
       <h2>Third parties</h2>
       <p>Cloud processing runs on Google Cloud (Cloud Run and Cloud Storage) in our own project. No document is sent to any other third-party service unless a tool explicitly says so.</p>
 

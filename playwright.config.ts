@@ -23,7 +23,7 @@ export default defineConfig({
     port: PORT,
     reuseExistingServer: !process.env.CI,
     // Signed URLs and worker callbacks must point at the server under test.
-    env: { NEXT_PUBLIC_SHARE_ENABLED: "1", SHARE_BACKEND: "local", APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`, ...(process.env.CI || process.env.E2E_PROD ? { NEXT_DIST_DIR: ".next-e2e" } : {}) },
+    env: { STRIPE_SECRET_KEY: "sk_test_not_a_real_key", STRIPE_WEBHOOK_SECRET: "whsec_test_only", STRIPE_PRICE_LITE_YEARLY: "price_test_ly", STRIPE_PRICE_LITE_MONTHLY: "price_test_lm", STRIPE_PRICE_PRO_YEARLY: "price_test_py", STRIPE_PRICE_PRO_MONTHLY: "price_test_pm", NEXT_PUBLIC_PLANS_ENABLED: "test", NEXT_PUBLIC_SHARE_ENABLED: "1", SHARE_BACKEND: "local", APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_SITE_URL: `http://localhost:${PORT}`, ...(process.env.CI || process.env.E2E_PROD ? { NEXT_DIST_DIR: ".next-e2e" } : {}) },
     timeout: 180_000,
   },
 });

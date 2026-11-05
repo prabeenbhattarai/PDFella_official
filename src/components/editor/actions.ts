@@ -7,6 +7,7 @@ import { isProcessingAvailable, runJob } from "@/lib/processing/client";
 import { downloadBlob, sanitizeFileName } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { saveTemplate } from "@/lib/templates";
+import { requirePlan } from "@/lib/plans";
 import { cropPdf, readBookmarks, writeBookmarks, type Bookmark, type CropMargins } from "@/lib/pdf/document-info";
 import { getDoc } from "@/lib/pdf/docCache";
 import { createSource } from "@/lib/editor/load";
@@ -71,6 +72,7 @@ export function friendlyError(e: unknown): string {
 
 /** Keep the document as it is now as a reusable template, stored in this browser. */
 export async function saveAsTemplate() {
+  if (!requirePlan("templates", () => void saveAsTemplate())) return;
   const s = useEditor.getState();
   try {
     const saved = await saveTemplate(s.docName, await buildPdf());

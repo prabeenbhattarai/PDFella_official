@@ -1,5 +1,7 @@
 "use client";
 
+import { cloudToolsEnabled } from "@/lib/tools";
+import { useTier } from "@/lib/plans";
 import { useCallback, useRef, useState } from "react";
 import { FileUp, ShieldCheck, Zap, UserX, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,12 +53,15 @@ function readWithProgress(file: File, onProgress: (pct: number) => void): Promis
   });
 }
 
-export function Dropzone({ accepts, multiple, onFiles, size = "default", title, subtitle, buttonLabel = "Choose file", className, tool }: DropzoneProps) {
+export function Dropzone({ accepts: requested, multiple, onFiles, size = "default", title, subtitle, buttonLabel = "Choose file", className, tool }: DropzoneProps) {
   const input = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState<{ name: string; pct: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const limits = limitsFor();
+  // Office files are converted by the processing server, so they wait until it's connected.
+  const withoutOffice = requested.filter((k) => !["docx", "xlsx", "pptx", "odt", "txt"].includes(k));
+  const accepts = cloudToolsEnabled || !withoutOffice.length ? requested : withoutOffice;
+  const limits = limitsFor(useTier());
 
   const handle = useCallback(async (list: FileList | File[]) => {
     setError(null);
@@ -93,7 +98,7 @@ export function Dropzone({ accepts, multiple, onFiles, size = "default", title, 
     } finally {
       setBusy(null);
     }
-  }, [accepts, multiple, onFiles, limits, tool]);
+  }, [requested, multiple, onFiles, limits, tool]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const acceptAttr = accepts.map((k) => ACCEPT_ATTR[k]).filter(Boolean).join(",");
   const formats = [...new Set(accepts.map((k) => kindLabel[k]))];

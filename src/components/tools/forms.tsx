@@ -12,6 +12,7 @@ import { readSpreadsheet, SpreadsheetError, type Sheet } from "@/lib/spreadsheet
 import { handoff } from "@/lib/storage/local";
 import { deleteTemplate, listTemplates, readTemplate, saveTemplate, type TemplateInfo } from "@/lib/templates";
 import { formatBytes } from "@/lib/utils";
+import { requirePlan } from "@/lib/plans";
 import type { Tool } from "@/lib/tools";
 import { FileChip, baseName, unlockFiles, toLoaded, type LoadedFile } from "./shared";
 import { Dropzone } from "@/components/upload/dropzone";
@@ -129,7 +130,7 @@ function BulkFillForm({ file, reset, run }: { file: LoadedFile; reset: () => voi
             )}
           </Field>
           <Switch label="Flatten, so the copies can't be edited" checked={flatten} onChange={setFlatten} />
-          <Button size="lg" className="w-full" disabled={mapped === 0} onClick={() => run("Filling your forms", async (progress) => {
+          <Button size="lg" className="w-full" disabled={mapped === 0} onClick={() => requirePlan("bulk-fill") && run("Filling your forms", async (progress) => {
             const r = await bulkFill({ bytes: file.bytes, name: file.name, sheet, mapping, nameColumn, flatten }, (done, total) => progress((done / total) * 100));
             if (!r.created) throw new Error(r.problems[0] ?? "No copies could be created.");
             return {
@@ -165,6 +166,7 @@ export function TemplatesWorkspace({ tool }: { tool: Tool }) {
   useEffect(() => { void listTemplates().then(setList); }, []);
 
   const add = async (files: LoadedFile[]) => {
+    if (!requirePlan("templates")) return;
     for (const f of await unlockFiles(files)) {
       const saved = await saveTemplate(f.name, f.bytes);
       if (!saved) { toast.error("Couldn't save the template", "Your browser's storage may be full or blocked."); return; }

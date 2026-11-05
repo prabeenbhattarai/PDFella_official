@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, CalendarClock, Globe2, Loader2, Monitor, X } from "lucide-react";
+import { Activity, CalendarClock, Crown, Globe2, Loader2, Monitor, X } from "lucide-react";
 import { currentIdToken } from "@/lib/auth/firebase";
 import type { UserDetail } from "@/lib/server/admin";
 
@@ -32,6 +32,7 @@ function Rows({ items }: { items: [string, React.ReactNode][] }) {
 export function UserDrawer({ uid, onClose }: { uid: string; onClose: () => void }) {
   const [user, setUser] = useState<UserDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reloads, setReloads] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,12 +53,58 @@ export function UserDrawer({ uid, onClose }: { uid: string; onClose: () => void 
     const esc = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", esc);
     return () => { cancelled = true; document.removeEventListener("keydown", esc); };
-  }, [uid, onClose]);
+  }, [uid, onClose, reloads]);
 
-  return <UserDrawerView user={user} error={error} onClose={onClose} />;
+  return <UserDrawerView user={user} error={error} onClose={onClose} onChanged={() => setReloads((n) => n + 1)} />;
 }
 
-export function UserDrawerView({ user, error, onClose }: { user: UserDetail | null; error: string | null; onClose: () => void }) {
+function PlanSection({ uid, plan, billing, onChanged }: { uid: string; plan: UserDetail["plan"]; billing: UserDetail["billing"]; onChanged?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const active = !!plan && (!plan.until || Date.parse(plan.until) > Date.now());
+  const set = async (next: "lite" | "pro" | null, days?: number) => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      const token = await currentIdToken();
+      const res = await fetch(`/api/admin/v1/2026/accounts/${encodeURIComponent(uid)}/plan`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ plan: next, days }) });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) setProblem(body?.message ?? `The server returned an error (${res.status}).`);
+      else onChanged?.();
+    } catch {
+      setProblem("The request didn't reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const btn = "rounded-lg border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-ink-2 hover:bg-surface-2 disabled:opacity-50";
+  return (
+    <Section icon={Crown} title="Plan">
+      <p className="text-[13.5px] text-ink" data-testid="user-plan">{active ? `${plan?.id === "lite" ? "Lite" : "Pro"}${plan?.until ? ` until ${when(plan.until)}` : ""}` : "Free"}</p>
+      {billing && (
+        <div className="mt-2.5 mb-3">
+          <Rows items={[
+            ["Status", billing.subscription ? `${billing.subscription.status}${billing.subscription.cancelsAtEnd ? ", cancels at period end" : ""}` : "No subscription yet"],
+            ["Billed", billing.subscription?.interval ? `Every ${billing.subscription.interval}` : "—"],
+            ["Period ends", when(billing.subscription?.periodEnd)],
+            ...(billing.checkoutStarted && !billing.subscription ? [["Started buying", `${billing.checkoutStarted.plan}, ${billing.checkoutStarted.billing}, ${when(billing.checkoutStarted.at)}`] as [string, React.ReactNode]] : []),
+            ["Stripe", <a key="stripe" className="break-all text-accent hover:underline" target="_blank" rel="noreferrer" href={`https://dashboard.stripe.com/${billing.testMode ? "test/" : ""}customers/${billing.customer}`}>{billing.customer}{billing.testMode ? " (test)" : ""}</a>],
+          ]} />
+        </div>
+      )}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <button type="button" disabled={busy} className={btn} onClick={() => void set("lite", 30)}>Lite, 30 days</button>
+        <button type="button" disabled={busy} className={btn} onClick={() => void set("pro", 30)}>Pro, 30 days</button>
+        <button type="button" disabled={busy} className={btn} onClick={() => void set("pro", 365)}>Pro, 1 year</button>
+        {active && <button type="button" disabled={busy} className={btn} onClick={() => void set(null)}>Remove plan</button>}
+      </div>
+      <p className="mt-2 text-[12px] text-ink-3">They get it the next time they open the site.</p>
+      {problem && <p role="alert" className="mt-2 text-[13px] text-danger">{problem}</p>}
+    </Section>
+  );
+}
+
+export function UserDrawerView({ user, error, onClose, onChanged }: { user: UserDetail | null; error: string | null; onClose: () => void; onChanged?: () => void }) {
   const a = user?.activity && !("error" in user.activity) && user.activity.lastSeen ? user.activity : null;
 
   return (
@@ -98,6 +145,8 @@ export function UserDrawerView({ user, error, onClose }: { user: UserDetail | nu
                 ["Account ID", <code key="id" className="text-[12px] text-ink-2">{user.uid}</code>],
               ]} />
             </Section>
+
+            <PlanSection uid={user.uid} plan={user.plan} billing={user.billing} onChanged={onChanged} />
 
             {user.desktop && (
               <Section icon={Monitor} title="Desktop app">

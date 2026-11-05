@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Building2, Check, Code2, Crown, Minus, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Check, Crown, Feather, Loader2, Minus, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
+import { DOCUMENTS_PER_DAY, LITE_TABS } from "@/lib/plan-limits";
+import { PRICES } from "@/lib/pricing";
+import { billingEnabled, startCheckout, waitForPlan } from "@/lib/billing-client";
+import { useTier } from "@/lib/plans";
+import { toast } from "@/components/ui/toast";
+import { PlanDemo } from "@/components/marketing/plan-demo";
 
 type Billing = "yearly" | "monthly";
 
@@ -21,47 +27,49 @@ interface Plan {
   features: string[];
 }
 
-const SALES = `mailto:${brand.supportEmail}?subject=${encodeURIComponent(`${brand.name} Business`)}`;
-
+const WAITLIST = (plan: string) => `mailto:${brand.supportEmail}?subject=${encodeURIComponent(`${brand.name} ${plan}`)}`;
 const PLANS: Plan[] = [
   {
     id: "free", name: "Free", icon: Zap, tagline: "For everyday PDF jobs.",
     price: { yearly: 0, monthly: 0 },
     cta: { label: "Start for free", href: "/editor" },
     features: [
-      "Every browser tool: edit, merge, split, compress, convert",
-      "Signatures, stamps and fonts with a free sign-in",
-      "3 cloud tasks a day (OCR, Office ↔ PDF)",
-      "Files up to 50 MB",
-      "No watermark, ever",
+      `Edit ${DOCUMENTS_PER_DAY.free} documents a day`,
+      "Edit text, add text and images, highlight and draw",
+      "Merge, split, rotate and compress",
+      "Convert PDFs to Word, images and text",
+      "The common fonts, such as Arial and Times look-alikes",
+      "Files up to 100 MB, with no watermark",
     ],
   },
   {
-    id: "pro", name: "Pro", icon: Crown, tagline: "For people who live in PDFs.",
-    price: { yearly: 6, monthly: 9 }, unit: "/month",
-    cta: { label: "Upgrade to Pro", href: "#waitlist" },
-    highlight: true, includesFrom: "Everything in Free, plus",
+    id: "lite", name: "Lite", icon: Feather, tagline: "For signing and polishing documents.",
+    price: PRICES.lite, unit: "/month",
+    cta: { label: "Get Lite", href: WAITLIST("Lite") },
+    includesFrom: "Everything in Free, plus",
     features: [
-      "Unlimited cloud tasks (fair use)",
-      "Files up to 1 GB",
-      "Batch processing: many files at once",
-      "Signatures and stamps saved on every device",
-      "7-day encrypted recent files",
-      "Priority processing and email support",
+      `Edit ${DOCUMENTS_PER_DAY.lite} documents a day`,
+      `Up to ${LITE_TABS} tabs at once`,
+      "Signatures and stamps, including your own",
+      "More than 50 extra fonts",
+      "Add pages",
+      "Crop and bookmarks in the editor",
+      "Files up to 250 MB",
     ],
   },
   {
-    id: "business", name: "Business", icon: Building2, tagline: "For teams that share documents.",
-    price: { yearly: 12, monthly: 15 }, unit: "/user/month",
-    cta: { label: "Talk to us", href: SALES },
-    includesFrom: "Everything in Pro, plus",
+    id: "pro", name: "Pro", icon: Crown, tagline: "For people who work with PDFs every day.",
+    price: PRICES.pro, unit: "/month",
+    cta: { label: "Get Pro", href: WAITLIST("Pro") },
+    highlight: true, includesFrom: "Everything in Lite, plus",
     features: [
-      "Files up to 4 GB",
-      "Team admin and central billing",
-      "Shared signatures, stamps and templates",
-      "30-day encrypted file history",
-      "Invoices with company and tax details",
-      "Priority same-day support",
+      "Unlimited documents",
+      "Unlimited tabs",
+      "Redaction that permanently removes content",
+      "Build forms",
+      "Templates",
+      "Fill forms from a spreadsheet",
+      "Files up to 500 MB",
     ],
   },
 ];
@@ -69,29 +77,34 @@ const PLANS: Plan[] = [
 type Cell = boolean | string;
 const COMPARE: { group: string; rows: [string, Cell, Cell, Cell][] }[] = [
   {
-    group: "Tools",
+    group: "Editor",
     rows: [
-      ["Edit, merge, split, rotate, compress", true, true, true],
-      ["Convert PDF ↔ Word, Excel, PowerPoint, images", true, true, true],
-      ["Signatures, stamps, extra pages, fonts", "Free sign-in", true, true],
-      ["OCR and Office conversions", "3 / day", "Unlimited", "Unlimited"],
-      ["Batch processing", false, true, true],
+      ["Documents you can edit", `${DOCUMENTS_PER_DAY.free} a day`, `${DOCUMENTS_PER_DAY.lite} a day`, "Unlimited"],
+      ["Edit text, add text and images, highlight, draw, shapes", true, true, true],
+      ["Tabs at once", "1", `${LITE_TABS}`, "Unlimited"],
+      ["Fonts", "Common fonts", "50+ more", "50+ more"],
+      ["Signatures", false, true, true],
+      ["Stamps, including your own", false, true, true],
+      ["Add pages", false, true, true],
+      ["Crop and bookmarks in the editor", false, true, true],
+      ["Redaction", false, false, true],
+      ["Build forms", false, false, true],
+    ],
+  },
+  {
+    group: "Other tools",
+    rows: [
+      ["Merge, split, rotate, compress", true, true, true],
+      ["Convert PDFs to Word, images and text", true, true, true],
+      ["Templates", false, false, true],
+      ["Fill forms from a spreadsheet", false, false, true],
     ],
   },
   {
     group: "Limits",
     rows: [
-      ["Maximum file size", "50 MB", "1 GB", "4 GB"],
-      ["Processing priority", "Standard", "Priority", "Priority"],
-      ["Recent files", false, "7 days", "30 days"],
-    ],
-  },
-  {
-    group: "Team & support",
-    rows: [
-      ["Team members", false, false, "2+"],
-      ["Shared templates", false, false, true],
-      ["Support", "Help centre", "Email, 24 h", "Same day"],
+      ["Maximum file size", "100 MB", "250 MB", "500 MB"],
+      ["Watermark", "None", "None", "None"],
     ],
   },
 ];
@@ -109,7 +122,26 @@ function Price({ plan, billing }: { plan: Plan; billing: Billing }) {
 function PlanCard({ plan, billing }: { plan: Plan; billing: Billing }) {
   const Icon = plan.icon;
   const hi = plan.highlight;
-  const saving = plan.price.monthly && billing === "yearly" ? (plan.price.monthly - plan.price.yearly) * 12 : 0;
+  const saving = (plan.price.monthly - plan.price.yearly) * 12;
+  const tier = useTier();
+  const mine = tier === plan.id;
+  const label = plan.id === "free" ? plan.cta.label : mine ? "Manage your plan" : tier === "free" ? plan.cta.label : `Switch to ${plan.name}`;
+  const [busy, setBusy] = useState(false);
+  const buy = async () => {
+    setBusy(true);
+    try {
+      if (tier !== "free") location.href = "/account";
+      else await startCheckout(plan.id as "lite" | "pro", billing, (message) => toast.error("Couldn't open the checkout", message));
+    } catch (e) {
+      toast.error("Couldn't open the checkout", (e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const ctaClass = cn(
+    "relative mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold transition disabled:opacity-60",
+    hi ? "bg-white text-[#0b6b57] shadow-lg hover:bg-white/90" : plan.id === "free" ? "bg-ink text-bg hover:opacity-90" : "border border-border-strong text-ink hover:bg-surface-2",
+  );
   return (
     <div className={cn(
       "relative flex flex-col rounded-3xl p-7 transition-transform duration-300 hover:-translate-y-1",
@@ -124,14 +156,14 @@ function PlanCard({ plan, billing }: { plan: Plan; billing: Billing }) {
             <div className="absolute inset-0 opacity-[0.06] [background-image:linear-gradient(white_1px,transparent_1px),linear-gradient(90deg,white_1px,transparent_1px)] [background-size:26px_26px]" />
           </div>
           <span className="absolute -top-3.5 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full bg-[#ffc83d] px-3 py-1 text-[12px] font-bold text-[#3d2b00] shadow-md">
-            <Sparkles className="size-3.5" aria-hidden /> Most popular
+            <Sparkles className="size-3.5" aria-hidden /> Everything included
           </span>
         </>
       )}
       <div className="relative flex items-center gap-3">
         <span className={cn("flex size-10 items-center justify-center rounded-xl", hi ? "bg-white/15" : "bg-accent-soft text-accent")}><Icon className="size-5" aria-hidden /></span>
         <div>
-          <h3 className="text-[19px] font-semibold tracking-tight">{plan.name}</h3>
+          <h3 className="flex items-center gap-2 text-[19px] font-semibold tracking-tight">{plan.name}{mine && <span data-testid="your-plan" className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", hi ? "bg-white/20 text-white" : "bg-accent-soft text-accent")}>Your plan</span>}</h3>
           <p className={cn("text-[13.5px]", hi ? "text-white/75" : "text-ink-3")}>{plan.tagline}</p>
         </div>
       </div>
@@ -139,17 +171,17 @@ function PlanCard({ plan, billing }: { plan: Plan; billing: Billing }) {
       <div className="relative">
         <Price plan={plan} billing={billing} />
         <p className={cn("mt-2 h-5 text-[13px]", hi ? "text-white/75" : "text-ink-3")}>
-          {plan.price.monthly === 0 ? "No card needed" : billing === "yearly" ? <>Billed ${plan.price.yearly * 12} yearly · <span className={cn("font-semibold", hi ? "text-[#ffd76a]" : "text-accent")}>save ${saving}</span></> : "Billed monthly, cancel anytime"}
+          {plan.price.monthly === 0 ? "No account needed" : billing === "yearly" ? <>Billed ${plan.price.yearly * 12} yearly · <span className={cn("font-semibold", hi ? "text-[#ffd76a]" : "text-accent")}>save ${saving}</span></> : "Billed monthly, cancel anytime"}
         </p>
       </div>
 
-      <Link href={plan.cta.href}
-        className={cn(
-          "relative mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl text-[15px] font-semibold transition",
-          hi ? "bg-white text-[#0b6b57] shadow-lg hover:bg-white/90" : plan.id === "free" ? "bg-ink text-bg hover:opacity-90" : "border border-border-strong text-ink hover:bg-surface-2",
-        )}>
-        {plan.cta.label} <ArrowRight className="size-4" aria-hidden />
-      </Link>
+      {billingEnabled && plan.id !== "free" ? (
+        <button type="button" disabled={busy} onClick={() => void buy()} className={ctaClass}>
+          {label} {busy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <ArrowRight className="size-4" aria-hidden />}
+        </button>
+      ) : (
+        <Link href={plan.cta.href} className={ctaClass}>{label} <ArrowRight className="size-4" aria-hidden /></Link>
+      )}
 
       <div className={cn("relative mt-7 border-t pt-6", hi ? "border-white/15" : "border-border")}>
         {plan.includesFrom && <p className={cn("mb-3 text-[12.5px] font-semibold tracking-wide uppercase", hi ? "text-white/70" : "text-ink-3")}>{plan.includesFrom}</p>}
@@ -174,6 +206,16 @@ function CellValue({ v }: { v: Cell }) {
 
 export function PricingPlans() {
   const [billing, setBilling] = useState<Billing>("yearly");
+
+  // Back from Stripe after paying: the plan switches on as soon as Stripe confirms it.
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get("checkout") !== "success") return;
+    history.replaceState(null, "", "/pricing");
+    void waitForPlan().then((ready) => {
+      if (ready) toast.success("Your plan is active", "Thanks for upgrading. Everything's unlocked.");
+      else toast.info("Your payment went through", "Your plan will switch on in a moment. Refresh this page if it doesn't.");
+    });
+  }, []);
   return (
     <>
       {/* Billing toggle */}
@@ -195,31 +237,17 @@ export function PricingPlans() {
         {PLANS.map((p) => <PlanCard key={p.id} plan={p} billing={billing} />)}
       </div>
 
-      {/* API strip */}
-      <div className="mx-auto mt-10 max-w-6xl overflow-hidden rounded-3xl border border-border bg-surface">
-        <div className="grid gap-6 p-7 md:grid-cols-[1.2fr_2fr] md:items-center md:p-8">
-          <div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-[color-mix(in_srgb,var(--cat-convert)_12%,transparent)] px-2.5 py-1 text-[12px] font-semibold text-[var(--cat-convert)]"><Code2 className="size-3.5" /> For developers</span>
-            <h3 className="mt-3 text-[22px] font-semibold tracking-tight">{brand.name} API</h3>
-            <p className="mt-1.5 text-[14.5px] text-ink-3">Merge, split, watermark, protect and convert from your own app, with the same engine.</p>
-            <Link href="/developers" className="mt-4 inline-flex items-center gap-1 text-[14px] font-semibold text-accent hover:underline">Read the docs <ArrowRight className="size-3.5" /></Link>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[
-              { n: "Starter", p: "Free", d: "500 requests / month", s: "20 per minute" },
-              { n: "Growth", p: "$29/mo", d: "20,000 requests / month", s: "then $1.50 per 1,000" },
-              { n: "Enterprise", p: "Custom", d: "Volume and SLA", s: "Dedicated support" },
-            ].map((t) => (
-              <div key={t.n} className="rounded-2xl border border-border bg-bg p-4">
-                <p className="text-[13px] font-semibold text-ink-3">{t.n}</p>
-                <p className="mt-1 text-[22px] font-semibold tracking-tight">{t.p}</p>
-                <p className="mt-1 text-[13px] text-ink-2">{t.d}</p>
-                <p className="text-[12.5px] text-ink-3">{t.s}</p>
-              </div>
-            ))}
-          </div>
+      <p className="mt-8 text-center text-[13.5px] text-ink-3">Prices are in US dollars. Your bank may add a currency conversion fee.{billingEnabled && " You'll sign in with Google before paying, so your plan stays on your account."}</p>
+
+      {/* Animated demo */}
+      <section className="mx-auto mt-24 max-w-6xl" aria-labelledby="see-plans">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-[13px] font-semibold tracking-[0.12em] text-accent uppercase">See it in action</p>
+          <h2 id="see-plans" className="mt-3 font-display text-4xl leading-tight tracking-tight sm:text-5xl">What each plan <em className="text-accent">unlocks</em></h2>
+          <p className="mt-3 text-lg text-ink-2">Watch each plan at work in the editor, and see where the next one takes over.</p>
         </div>
-      </div>
+        <div className="mt-10"><PlanDemo /></div>
+      </section>
 
       {/* Comparison */}
       <section className="mx-auto mt-24 max-w-5xl" aria-labelledby="compare">
@@ -256,7 +284,7 @@ function FragmentRows({ group, rows }: { group: string; rows: [string, Cell, Cel
       {rows.map(([label, ...cells]) => (
         <tr key={label} className="border-t border-border">
           <td className="px-6 py-3.5 text-[14.5px] text-ink">{label}</td>
-          {cells.map((c, i) => <td key={i} className={cn("px-4 py-3.5 text-center", i === 1 && "bg-accent-soft/40")}><CellValue v={c} /></td>)}
+          {cells.map((c, i) => <td key={i} className={cn("px-4 py-3.5 text-center", i === 2 && "bg-accent-soft/40")}><CellValue v={c} /></td>)}
         </tr>
       ))}
     </>

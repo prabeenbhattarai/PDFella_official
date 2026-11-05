@@ -1,5 +1,7 @@
 "use client";
 
+import { isComingSoon } from "@/lib/tools";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowUpRight, Laptop, Cloud } from "lucide-react";
@@ -24,7 +26,7 @@ export function ToolCard({ t }: { t: Tool }) {
       </h3>
       <span className="mt-1.5 flex-1 text-[14px] leading-relaxed text-ink-2">{t.blurb}</span>
       <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-ink-3">
-        {t.engine === "browser" ? <><Laptop className="size-3" /> In your browser</> : <><Cloud className="size-3" /> Secure cloud</>}
+        {isComingSoon(t) ? <ComingSoonTag /> : t.engine === "browser" ? <><Laptop className="size-3" /> In your browser</> : <><Cloud className="size-3" /> Secure cloud</>}
       </span>
     </Link>
   );

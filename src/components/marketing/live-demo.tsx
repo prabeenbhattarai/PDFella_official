@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { handoff } from "@/lib/storage/local";
 import { cn } from "@/lib/utils";
+import { cloudToolsEnabled } from "@/lib/tools";
 
 /* ──────────────────────────────────────────────────────────────────────────
    A scripted, animated mock of the editor working on a real-looking document.
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 export type SceneId = "edit" | "highlight" | "sign" | "redact" | "annotate" | "organise" | "ocr" | "convert" | "compress";
 
-const SCENES: { id: SceneId; label: string; icon: typeof TextCursor; dur: number; caption: string }[] = [
+const ALL_SCENES: { id: SceneId; label: string; icon: typeof TextCursor; dur: number; caption: string }[] = [
   { id: "edit", label: "Edit text", icon: TextCursor, dur: 6200, caption: "Double-click any text and type. The original is replaced in the PDF" },
   { id: "highlight", label: "Highlight", icon: Highlighter, dur: 5200, caption: "Highlights snap to the line of text you drag across" },
   { id: "sign", label: "Sign", icon: Signature, dur: 6000, caption: "Draw, type or upload your signature" },
@@ -28,6 +29,9 @@ const SCENES: { id: SceneId; label: string; icon: typeof TextCursor; dur: number
   { id: "convert", label: "Convert", icon: FileOutput, dur: 5600, caption: "Convert to Word, Excel, PowerPoint or images" },
   { id: "compress", label: "Compress", icon: Minimize2, dur: 5200, caption: "Smaller files, same readable document" },
 ];
+
+// Only show what's available: OCR needs the processing server.
+const SCENES = cloudToolsEnabled ? ALL_SCENES : ALL_SCENES.filter((s) => s.id !== "ocr").map((s) => (s.id === "convert" ? { ...s, caption: "Convert to Word, images or text" } : s));
 
 // ── stage geometry
 const W = 760, H = 500;
@@ -49,18 +53,18 @@ const railPt = (id: string): Pt => [RAIL / 2, TOP + 12 + RAIL_TOOLS.findIndex((t
 const SAVE: Pt = [W - 64, TOP / 2];
 const PANEL_BTN: Pt = [W - PANEL / 2, H - 34];
 
-type Pt = [number, number];
+export type Pt = [number, number];
 type Box = { x: number; y: number; w: number; h: number };
 
 // ── timing helpers
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-const prog = (t: number, start: number, dur: number) => clamp01((t - start) / dur);
-const ease = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
-const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
-const fade = (t: number, at: number, d = 300) => ease(prog(t, at, d));
+export const prog = (t: number, start: number, dur: number) => clamp01((t - start) / dur);
+export const ease = (p: number) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+export const lerp = (a: number, b: number, p: number) => a + (b - a) * p;
+export const fade = (t: number, at: number, d = 300) => ease(prog(t, at, d));
 
 /** Cursor position from a list of [time, point] waypoints. */
-function follow(t: number, way: [number, Pt][]): Pt {
+export function follow(t: number, way: [number, Pt][]): Pt {
   if (!way.length) return [W / 2, H / 2];
   if (t <= way[0][0]) return way[0][1];
   for (let i = 1; i < way.length; i++) {
@@ -74,7 +78,7 @@ function follow(t: number, way: [number, Pt][]): Pt {
   return way[way.length - 1][1];
 }
 
-function usePrefersReducedMotion() {
+export function usePrefersReducedMotion() {
   const [reduce, setReduce] = useState(false);
   useEffect(() => {
     const m = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -521,7 +525,7 @@ function Organise({ t }: { t: number }) {
 function ConvertCards({ t }: { t: number }) {
   const files = [
     { ext: "DOCX", name: "agreement.docx", color: "#1f6feb", at: 1300 },
-    { ext: "XLSX", name: "agreement.xlsx", color: "#2e9e5b", at: 1900 },
+    cloudToolsEnabled ? { ext: "XLSX", name: "agreement.xlsx", color: "#2e9e5b", at: 1900 } : { ext: "TXT", name: "agreement.txt", color: "#2e9e5b", at: 1900 },
     { ext: "JPG", name: "agreement-page-1.jpg", color: "#6e40c9", at: 2500 },
   ];
   const left = PAGE_X + 120;
@@ -576,7 +580,7 @@ function Panel({ scene, t, sizeP, scanP }: { scene: SceneId; t: number; sizeP: n
       body = <>{title("OCR")}{row("Language", "English")}<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-3"><div className="h-full bg-accent" style={{ width: `${scanP * 100}%` }} /></div><div className="mt-2">{row("Words found", Math.round(scanP * 1248).toLocaleString())}</div>{btn(scanP >= 1 ? "Searchable ✓" : "Run OCR", t > 800 && scanP < 1)}</>;
       break;
     case "convert":
-      body = <>{title("Convert to")}{["Word (.docx)", "Excel (.xlsx)", "Images (.jpg)", "PowerPoint (.pptx)"].map((f, i) => <div key={f}>{row(f, i < 3 ? <Check className="size-3 text-accent" /> : "–")}</div>)}{btn("Convert", t > 650 && t < 1300)}</>;
+      body = <>{title("Convert to")}{(cloudToolsEnabled ? ["Word (.docx)", "Excel (.xlsx)", "Images (.jpg)", "PowerPoint (.pptx)"] : ["Word (.docx)", "Text (.txt)", "Images (.jpg)"]).map((f, i) => <div key={f}>{row(f, i < 3 ? <Check className="size-3 text-accent" /> : "–")}</div>)}{btn("Convert", t > 650 && t < 1300)}</>;
       break;
     case "compress": {
       const mb = lerp(8.4, 2.1, sizeP);

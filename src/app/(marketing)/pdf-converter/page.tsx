@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Check, ChevronRight, Laptop, Sparkles } from "lucide-react";
-import { getTool, type Tool } from "@/lib/tools";
+import { getTool, type Tool, cloudToolsEnabled } from "@/lib/tools";
 import { getContent, CONTENT_UPDATED } from "@/content/seo";
 import { brand } from "@/lib/brand";
 import { absolute, jsonLdScript } from "@/lib/seo";
@@ -11,7 +11,9 @@ import { HeroUpload } from "@/components/marketing/hero-upload";
 import { FileIcon } from "@/components/marketing/illustrations";
 
 const TITLE = `Free PDF Converter: Convert to & from PDF Online | ${brand.name}`;
-const DESCRIPTION = "Free online PDF converter. Convert PDF to Word, JPG, PNG, Excel and PowerPoint, and Word, Excel, PowerPoint and images to PDF. No sign-up, no watermark.";
+const DESCRIPTION = cloudToolsEnabled
+  ? "Free online PDF converter. Convert PDF to Word, JPG, PNG, Excel and PowerPoint, and Word, Excel, PowerPoint and images to PDF. No sign-up, no watermark."
+  : "Free online PDF converter. Convert PDF to Word, JPG, PNG and text, and images to PDF, right in your browser. No sign-up, no watermark.";
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
@@ -27,7 +29,7 @@ const FROM = pick(["pdf-to-word", "pdf-to-jpg", "pdf-to-png", "pdf-to-excel", "p
 const TO = pick(["word-to-pdf", "excel-to-pdf", "powerpoint-to-pdf", "jpg-to-pdf", "png-to-pdf"]);
 
 const faq = [
-  { q: "What is the best free PDF converter?", a: `${brand.name} converts PDFs to Word, JPG, PNG, Excel, PowerPoint and text, and converts Word, Excel, PowerPoint and images to PDF, free and without an account or watermark. PDF to Word, PDF to images and images to PDF run in your browser, so files aren't uploaded.` },
+  { q: "What is the best free PDF converter?", a: cloudToolsEnabled ? `${brand.name} converts PDFs to Word, JPG, PNG, Excel, PowerPoint and text, and converts Word, Excel, PowerPoint and images to PDF, free and without an account or watermark. PDF to Word, PDF to images and images to PDF run in your browser, so files aren't uploaded.` : `${brand.name} converts PDFs to Word, JPG, PNG and text, and images to PDF, free and without an account or watermark. It all runs in your browser, so files aren't uploaded. Excel, PowerPoint and Office conversions are coming soon.` },
   { q: "How do I convert a PDF to Word?", a: "Open PDF to Word and drop your PDF onto the page. It converts in your browser with live progress, then you download an editable .docx file." },
   { q: "How do I convert JPG to PDF?", a: "Open JPG to PDF, add your images, arrange them, choose a page size and click Convert to PDF." },
   { q: "Are my files safe?", a: "Browser-based conversions never upload your file. Office conversions use secure cloud processing and delete files automatically within 60 minutes." },
@@ -56,7 +58,7 @@ export default function PdfConverterPage() {
               <Link href="/" className="hover:text-ink">Home</Link><ChevronRight className="size-3.5" /><span className="text-ink-2" aria-current="page">PDF Converter</span>
             </nav>
             <h1 className="font-display text-5xl leading-[0.98] tracking-tight sm:text-7xl">Free PDF converter</h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-2">Convert PDFs to Word, JPG, PNG, Excel and PowerPoint, and turn Word, Excel, PowerPoint and images into PDFs. Fast, free and private.</p>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-2">{cloudToolsEnabled ? "Convert PDFs to Word, JPG, PNG, Excel and PowerPoint, and turn Word, Excel, PowerPoint and images into PDFs. Fast, free and private." : "Convert PDFs to Word, JPG, PNG and text, and turn images into PDFs. Fast, free and private. Excel, PowerPoint and Office conversions are coming soon."}</p>
             <ul className="mt-6 grid max-w-xl gap-2.5 text-[15px] font-medium text-ink-2 sm:grid-cols-2">
               {["11 conversion tools", "No sign-up or watermark", "Most conversions run in your browser", "Files up to 100 MB"].map((x) => <li key={x} className="flex items-center gap-2"><Check className="size-4 text-accent" />{x}</li>)}
             </ul>
@@ -102,13 +104,13 @@ export default function PdfConverterPage() {
             <div className="mt-4 space-y-4 text-[17px] leading-relaxed text-ink-2">
               <p>To <strong className="text-ink">edit the words</strong> of a PDF in Word, use <Link className="text-accent hover:underline" href="/pdf-to-word">PDF to Word</Link>. If you only need to change a few words, <Link className="text-accent hover:underline" href="/edit-pdf">Edit PDF</Link> is faster because it edits the PDF directly.</p>
               <p>To <strong className="text-ink">share a page as a picture</strong>, use <Link className="text-accent hover:underline" href="/pdf-to-jpg">PDF to JPG</Link> for photos and scans, or <Link className="text-accent hover:underline" href="/pdf-to-png">PDF to PNG</Link> for sharp text and diagrams.</p>
-              <p>To <strong className="text-ink">work with data</strong>, <Link className="text-accent hover:underline" href="/pdf-to-excel">PDF to Excel</Link> extracts tables into a spreadsheet.</p>
-              <p>To <strong className="text-ink">create a PDF</strong>, use <Link className="text-accent hover:underline" href="/word-to-pdf">Word to PDF</Link>, <Link className="text-accent hover:underline" href="/excel-to-pdf">Excel to PDF</Link>, <Link className="text-accent hover:underline" href="/powerpoint-to-pdf">PowerPoint to PDF</Link> or <Link className="text-accent hover:underline" href="/jpg-to-pdf">JPG to PDF</Link>.</p>
+              {cloudToolsEnabled && <p>To <strong className="text-ink">work with data</strong>, <Link className="text-accent hover:underline" href="/pdf-to-excel">PDF to Excel</Link> extracts tables into a spreadsheet.</p>}
+              {cloudToolsEnabled ? <p>To <strong className="text-ink">create a PDF</strong>, use <Link className="text-accent hover:underline" href="/word-to-pdf">Word to PDF</Link>, <Link className="text-accent hover:underline" href="/excel-to-pdf">Excel to PDF</Link>, <Link className="text-accent hover:underline" href="/powerpoint-to-pdf">PowerPoint to PDF</Link> or <Link className="text-accent hover:underline" href="/jpg-to-pdf">JPG to PDF</Link>.</p> : <p>To <strong className="text-ink">create a PDF</strong>, use <Link className="text-accent hover:underline" href="/jpg-to-pdf">JPG to PDF</Link> or <Link className="text-accent hover:underline" href="/png-to-pdf">PNG to PDF</Link>.</p>}
             </div>
           </div>
           <div>
             <h2 className="text-3xl font-semibold tracking-tight">Private by design</h2>
-            <p className="mt-4 flex gap-3 text-[17px] leading-relaxed text-ink-2"><Laptop className="mt-1 size-5 shrink-0 text-accent" />PDF to Word, PDF to JPG/PNG, PDF to text, and JPG/PNG to PDF run entirely in your browser: your files are never uploaded. Office conversions use secure cloud processing and files are deleted automatically within 60 minutes.</p>
+            <p className="mt-4 flex gap-3 text-[17px] leading-relaxed text-ink-2"><Laptop className="mt-1 size-5 shrink-0 text-accent" />PDF to Word, PDF to JPG/PNG, PDF to text, and JPG/PNG to PDF run entirely in your browser: your files are never uploaded.{cloudToolsEnabled && " Office conversions use secure cloud processing and files are deleted automatically within 60 minutes."}</p>
             <Link href="/privacy" className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-accent hover:underline">How we handle files <ArrowRight className="size-4" /></Link>
           </div>
         </div>

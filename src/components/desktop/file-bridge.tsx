@@ -6,6 +6,8 @@ import { toast } from "@/components/ui/toast";
 import { isDesktopApp } from "@/lib/auth/desktop";
 import { receiveFiles, type IncomingFile } from "@/lib/desktop-files";
 import { limitsFor } from "@/lib/limits";
+import { currentTier } from "@/lib/plans";
+import { cloudToolsEnabled } from "@/lib/tools";
 import { sniffBytes } from "@/lib/security/filetype";
 import { formatBytes } from "@/lib/utils";
 
@@ -19,7 +21,7 @@ declare global {
   }
 }
 
-const OPENS_IN_EDITOR = new Set(["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"]);
+const OPENS_IN_EDITOR = new Set(["pdf", "png", "jpg", "webp", ...(cloudToolsEnabled ? ["docx", "xlsx", "pptx", "odt", "txt"] : [])]);
 
 const decode = (chunks: string[]) => {
   const parts = chunks.map((c) => Uint8Array.from(atob(c), (ch) => ch.charCodeAt(0)));
@@ -29,7 +31,7 @@ const decode = (chunks: string[]) => {
   return out;
 };
 
-const tooBig = (name: string) => toast.error(`“${name}” is too large`, `Files can be up to ${formatBytes(limitsFor().maxFileBytes)}.`);
+const tooBig = (name: string) => toast.error(`“${name}” is too large`, `Your plan allows files up to ${formatBytes(limitsFor(currentTier()).maxFileBytes)}.`);
 
 /**
  * Desktop app only: opens double-clicked PDFs, and files dropped on the window
@@ -50,8 +52,9 @@ export function DesktopFileBridge() {
       window.__pdfellaIncoming = incoming.filter((f) => !f.done);
       const files: IncomingFile[] = [];
       for (const f of ready) {
-        if (f.tooBig) tooBig(f.name);
-        else files.push({ name: f.name, type: "application/pdf", bytes: decode(f.chunks) });
+        const bytes = f.tooBig ? null : decode(f.chunks);
+        if (!bytes || bytes.length > limitsFor(currentTier()).maxFileBytes) tooBig(f.name);
+        else files.push({ name: f.name, type: "application/pdf", bytes });
       }
       deliver(files);
     };
@@ -68,10 +71,10 @@ export function DesktopFileBridge() {
       if (handled) return;
       const files: IncomingFile[] = [];
       for (const f of Array.from(e.dataTransfer?.files ?? [])) {
-        if (f.size > limitsFor().maxFileBytes) { tooBig(f.name); continue; }
+        if (f.size > limitsFor(currentTier()).maxFileBytes) { tooBig(f.name); continue; }
         const bytes = new Uint8Array(await f.arrayBuffer());
         if (OPENS_IN_EDITOR.has(sniffBytes(bytes.subarray(0, 4096), f.name))) files.push({ name: f.name, type: f.type, bytes });
-        else toast.error(`Can't open “${f.name}”`, "Use a PDF, image or Office document.");
+        else toast.error(`Can't open “${f.name}”`, cloudToolsEnabled ? "Use a PDF, image or Office document." : "Use a PDF or an image.");
       }
       deliver(files);
     };

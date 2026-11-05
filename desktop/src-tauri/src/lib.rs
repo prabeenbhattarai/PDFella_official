@@ -59,8 +59,8 @@ struct Inbox {
     sending: Arc<Mutex<()>>,
 }
 
-/// The largest file the site's plan limits allow it to open.
-const MAX_FILE_BYTES: u64 = 100 * 1024 * 1024;
+/// The largest file any plan allows. The site applies each plan's own limit.
+const MAX_FILE_BYTES: u64 = 500 * 1024 * 1024;
 /// A multiple of 3, so each chunk's base64 decodes on its own.
 const CHUNK_BYTES: usize = 384 * 1024;
 

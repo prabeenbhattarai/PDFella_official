@@ -15,10 +15,13 @@ import { loadGsi, setGsiErrorHandler } from "@/lib/auth/gsi";
 export const SKIPPED = "pdfella:auth-skipped";
 
 const COPY: Record<LockedFeature, { title: string; body: string }> = {
-  editor: { title: "Unlock the full editor", body: "Sign in to sign, stamp, add pages and use every font. It's free and takes one click." },
+  editor: process.env.NEXT_PUBLIC_PLANS_ENABLED === "1"
+    ? { title: "Sign in to PDFella", body: "Free, one click, and your plan follows you to every device." }
+    : { title: "Unlock the full editor", body: "Sign in to sign, stamp, add pages and use every font. It's free and takes one click." },
   signature: { title: "Sign in to add your signature", body: "Draw, type or upload a signature and place it anywhere. Free with a one-click sign-in." },
   stamp: { title: "Sign in to use stamps", body: "Approved, Draft, Confidential and your own custom stamps. Free with a one-click sign-in." },
   pages: { title: "Sign in to add pages", body: "Insert blank pages, other PDFs and images anywhere in your document. Free with a one-click sign-in." },
+  checkout: { title: "Sign in to buy your plan", body: "Your plan is saved on your Google account, so it works on every device and your receipts go to that email." },
   share: { title: "Sign in to share your PDF", body: "Create encrypted links you can send to anyone, and delete them whenever you like. Free with a one-click sign-in." },
   fonts: { title: "Sign in to style your text", body: "Every font, plus bold, italic and underline. Free with a one-click sign-in." },
 };
@@ -81,7 +84,7 @@ function BrandPanel({ feature }: { feature: LockedFeature }) {
         <div className="mt-1 h-px bg-white/25" />
       </div>
 
-      <ul className="relative mt-6 grid grid-cols-2 gap-2.5">
+      <ul className={cn("relative mt-6 grid grid-cols-2 gap-2.5", process.env.NEXT_PUBLIC_PLANS_ENABLED === "1" && "hidden")}>
         {UNLOCKS.map(({ feature: f, icon: Icon, title, body }) => {
           const hit = f === feature;
           return (

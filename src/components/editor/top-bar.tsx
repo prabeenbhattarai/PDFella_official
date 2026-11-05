@@ -15,6 +15,8 @@ import { cn, stripExtension } from "@/lib/utils";
 import { downloadNow, printDocument, saveAsTemplate } from "./actions";
 import { AccountButton } from "@/components/auth/account-button";
 import { shareEnabled } from "@/lib/tools";
+import { useIsLocked } from "@/lib/plans";
+import { ProCrown } from "@/components/plans/upgrade-dialog";
 
 interface Props {
   onShare: () => void;
@@ -42,6 +44,7 @@ export function TopBar({ onShare, onCrop, onBookmarks, onSave, onNew, onOpen, on
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const s = useEditor.getState;
+  const locked = useIsLocked()("crop");
 
   useEffect(() => {
     if (!menu) return;
@@ -86,8 +89,8 @@ export function TopBar({ onShare, onCrop, onBookmarks, onSave, onNew, onOpen, on
       </div>
 
       <div className="ml-auto flex items-center gap-0.5 lg:ml-0">
-        <Button variant="ghost" size="icon" aria-label="Crop pages" title="Crop pages" onClick={onCrop} className="hidden sm:inline-flex" data-tour="crop"><Crop /></Button>
-        <Button variant="ghost" size="icon" aria-label="Edit bookmarks" title="Edit bookmarks" onClick={onBookmarks} className="hidden sm:inline-flex"><Bookmark /></Button>
+        <Button variant="ghost" size="icon" aria-label="Crop pages" title={locked ? "Crop pages (paid plans)" : "Crop pages"} onClick={onCrop} className="relative hidden sm:inline-flex" data-tour="crop"><Crop />{locked && <ProCrown className="top-0.5 right-0.5" />}</Button>
+        <Button variant="ghost" size="icon" aria-label="Edit bookmarks" title={locked ? "Edit bookmarks (paid plans)" : "Edit bookmarks"} onClick={onBookmarks} className="relative hidden sm:inline-flex"><Bookmark />{locked && <ProCrown className="top-0.5 right-0.5" />}</Button>
         <Button variant="ghost" size="icon" aria-label="Search" title="Search (Ctrl+F)" onClick={() => useSearch.getState().setOpen(true)}><Search /></Button>
         <Button variant="ghost" size="icon" aria-label="Print" title="Print (Ctrl+P)" onClick={printDocument} className="hidden sm:inline-flex"><Printer /></Button>
         <div className="relative" ref={menuRef}>

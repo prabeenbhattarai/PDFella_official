@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
+import { billingEnabled } from "@/lib/billing-client";
 import { useEffect, useRef, useState } from "react";
-import { LogOut } from "lucide-react";
+import { CreditCard, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { signOutUser } from "@/lib/auth/firebase";
@@ -53,6 +55,12 @@ export function AccountButton({ compact, signInClassName = "hidden sm:inline-fle
             {user.email && <p className="truncate text-[13px] text-ink-3">{user.email}</p>}
           </div>
           <div className="my-1 border-t border-border" />
+          {billingEnabled && (
+            <Link href="/account" role="menuitem" onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13.5px] text-ink-2 hover:bg-surface-2 hover:text-ink">
+              <CreditCard className="size-4" /> Manage subscription
+            </Link>
+          )}
           <button type="button" role="menuitem" onClick={() => { setOpen(false); void signOutUser(); }}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[14px] text-ink-2 hover:bg-surface-2 hover:text-ink">
             <LogOut className="size-4" /> Sign out

@@ -2,7 +2,7 @@
  * Plan limits. Every check takes a plan so a future account/Stripe system only
  * needs to supply the right plan — nothing else in the anonymous path changes.
  */
-export type PlanId = "free" | "pro" | "business";
+export type PlanId = "free" | "lite" | "pro";
 
 export interface PlanLimits {
   maxFileBytes: number;
@@ -12,9 +12,9 @@ export interface PlanLimits {
 }
 
 export const plans: Record<PlanId, PlanLimits> = {
-  free: { maxFileBytes: 100 * 1024 * 1024, maxFilesPerTask: 20, serverTasksPerDay: 25, ocr: true },
-  pro: { maxFileBytes: 1024 * 1024 * 1024, maxFilesPerTask: 200, serverTasksPerDay: 1000, ocr: true },
-  business: { maxFileBytes: 4 * 1024 * 1024 * 1024, maxFilesPerTask: 1000, serverTasksPerDay: 100_000, ocr: true },
+  free: { maxFileBytes: 100 * 1024 * 1024, maxFilesPerTask: 20, serverTasksPerDay: process.env.NEXT_PUBLIC_PLANS_ENABLED === "1" ? 5 : 25, ocr: true },
+  lite: { maxFileBytes: 250 * 1024 * 1024, maxFilesPerTask: 50, serverTasksPerDay: 50, ocr: true },
+  pro: { maxFileBytes: 500 * 1024 * 1024, maxFilesPerTask: 200, serverTasksPerDay: 1000, ocr: true },
 };
 
 export const currentPlan: PlanId = "free";

@@ -5,9 +5,22 @@ import { config, processingAvailable } from "@/lib/server/config";
 import { newJobId, jobToken, hashClient } from "@/lib/server/tokens";
 import { OPS, isServerOp } from "@/lib/server/ops";
 import { json, fail, clientIp, sameOrigin } from "@/lib/server/http";
-import { limitsFor } from "@/lib/limits";
+import { limitsFor, type PlanId } from "@/lib/limits";
+import { bearer, verifyIdToken } from "@/lib/server/firebase-auth";
 
 export const dynamic = "force-dynamic";
+
+/** Paid limits need a valid token whose account has an unexpired plan. */
+async function requestPlan(req: Request): Promise<PlanId> {
+  const token = bearer(req);
+  if (!token) return "free";
+  try {
+    const { plan } = (await verifyIdToken(token)) as { plan?: { id?: string; until?: string | null } };
+    return (plan?.id === "lite" || plan?.id === "pro") && (!plan.until || Date.parse(plan.until) > Date.now()) ? plan.id : "free";
+  } catch {
+    return "free";
+  }
+}
 
 const EXT_OK = /^(pdf|docx|xlsx|pptx|odt|txt|png|jpe?g|webp)$/;
 
@@ -19,7 +32,7 @@ export async function POST(req: Request) {
   try { body = await req.json(); } catch { return fail(400, "bad_request", "Invalid JSON"); }
   if (!isServerOp(body.op)) return fail(400, "bad_op", "Unknown operation");
   const op = OPS[body.op];
-  const plan = limitsFor();
+  const plan = limitsFor(await requestPlan(req));
   const files = Array.isArray(body.files) ? body.files : [];
   if (!files.length || files.length > op.maxFiles) return fail(400, "bad_files", "Wrong number of files");
 

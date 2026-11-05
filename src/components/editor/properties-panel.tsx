@@ -9,7 +9,8 @@ import { useEditor, findObject } from "@/lib/editor/store";
 import type { EditorObject, TextEditObject, TextStyle } from "@/lib/editor/model";
 import { fontDisplayName, styleDiff } from "@/lib/editor/detect-style";
 import { FontPicker } from "./font-picker";
-import { requireAuth } from "@/lib/auth/store";
+import { requireFontChange } from "@/lib/plans";
+import { cloudToolsEnabled } from "@/lib/tools";
 import { applyOriginalStyle, checkStyle } from "./style-choice";
 import { StampMaker, WhiteoutModePicker } from "./stamp-maker";
 import { textRunsIn } from "@/lib/editor/whiteout";
@@ -36,8 +37,8 @@ const FONT_STYLE_KEYS = ["font", "fontFallback", "bold", "italic", "underline"] 
 
 function TextControls({ value, onChange, onCommit }: { value: TextStyle; onChange: (p: Partial<TextStyle>) => void; onCommit: () => void }) {
   const ch = (p: Partial<TextStyle>) => {
-    // Font family and bold/italic/underline need an account; size, colour and alignment don't.
-    if (FONT_STYLE_KEYS.some((k) => k in p) && !requireAuth("fonts", () => { onCommit(); onChange(p); })) return;
+    // Size, colour and alignment are always free; see requireFontChange for fonts.
+    if (FONT_STYLE_KEYS.some((k) => k in p) && !requireFontChange(p, () => { onCommit(); onChange(p); })) return;
     onCommit();
     onChange(p);
   };
@@ -339,7 +340,9 @@ function DocumentPanel({ onOcr }: { onOcr: () => void }) {
       {scanned && (
         <Section title="Scanned document" icon={ScanText}>
           <p className="text-[13px] text-ink-2">This looks like a scanned document, so its text can&apos;t be searched or edited yet.</p>
-          <Button size="sm" onClick={onOcr} className="w-full"><ScanText /> Run OCR to make it searchable</Button>
+          {cloudToolsEnabled
+            ? <Button size="sm" onClick={onOcr} className="w-full"><ScanText /> Run OCR to make it searchable</Button>
+            : <p className="text-[12.5px] font-medium text-ink-3">Making scans searchable is coming soon.</p>}
         </Section>
       )}
       <FormPanel />

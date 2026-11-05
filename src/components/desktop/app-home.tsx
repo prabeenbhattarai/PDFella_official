@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { HeroUpload } from "@/components/marketing/hero-upload";
 import { ToolIcon } from "@/components/ui/tool-icon";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
+import { isComingSoon } from "@/lib/tools";
 import { useAuth } from "@/lib/auth/store";
 import { recentTools } from "@/lib/desktop-app";
 import { useInApp } from "./use-in-app";
@@ -25,7 +27,7 @@ function Tile({ t }: { t: Tool }) {
         <ToolIcon name={t.icon} className="size-[18px]" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-[14px] font-semibold text-ink">{t.name}</span>
+        <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink"><span className="truncate">{t.name}</span>{isComingSoon(t) && <ComingSoonTag />}</span>
         <span className="block truncate text-[12.5px] text-ink-3">{t.blurb}</span>
       </span>
     </Link>

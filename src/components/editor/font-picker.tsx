@@ -8,6 +8,8 @@ import { useEditor } from "@/lib/editor/store";
 import { CATALOG, CATEGORY_LABELS, type FontCategory } from "@/lib/fonts/catalog";
 import { ensureFont, fontStack, isOriginal, parseOriginal } from "@/lib/fonts/loader";
 import { cn } from "@/lib/utils";
+import { FREE_FONTS, useIsLocked } from "@/lib/plans";
+import { ProBadge } from "@/components/plans/upgrade-dialog";
 
 interface Option { id: string; label: string; hint?: string; fallback?: string; group: string }
 
@@ -30,6 +32,7 @@ const sameFont = (a: string, b: string) => (isOriginal(a) && isOriginal(b) ? par
 function Item({ o, selected, active, onPick, onHover }: { o: Option; selected: boolean; active: boolean; onPick: () => void; onHover: () => void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const assets = useEditor((s) => s.assets);
+  const locked = useIsLocked()("fonts");
   // Load the face only once the row scrolls into view.
   useEffect(() => {
     const el = ref.current;
@@ -52,6 +55,7 @@ function Item({ o, selected, active, onPick, onHover }: { o: Option; selected: b
     >
       <span className="min-w-0 flex-1 truncate text-[16px] text-ink" style={{ fontFamily: fontStack({ font: o.id, fontFallback: o.fallback }) }}>{o.label}</span>
       {o.hint && <span className="shrink-0 text-[11px] text-ink-3">{o.hint}</span>}
+      {locked && !FREE_FONTS.has(o.id) && !isOriginal(o.id) && <ProBadge label="LITE" className="shrink-0" />}
       <Check className={cn("size-4 shrink-0 text-accent", !selected && "invisible")} />
     </button>
   );

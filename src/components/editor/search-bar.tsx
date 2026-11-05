@@ -1,5 +1,6 @@
 "use client";
 
+import { cloudToolsEnabled } from "@/lib/tools";
 import { useEffect, useRef } from "react";
 import { ChevronDown, ChevronUp, X, SquareSlash, ScanText } from "lucide-react";
 import { useSearch } from "@/lib/editor/search";
@@ -53,7 +54,7 @@ export function SearchBar({ onOcr }: { onOcr: () => void }) {
       {hits.length > 0 && (
         <button onClick={redactAll} className="mt-1.5 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs text-ink-2 hover:bg-surface-2"><SquareSlash className="size-3.5 text-danger" /> Mark all {hits.length} matches for redaction</button>
       )}
-      {query && !hits.length && !searching && scanned && (
+      {cloudToolsEnabled && query && !hits.length && !searching && scanned && (
         <button onClick={onOcr} className="mt-1.5 flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-left text-xs text-accent hover:bg-surface-2"><ScanText className="size-3.5" /> Run OCR to make this document searchable</button>
       )}
     </div>

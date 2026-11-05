@@ -121,8 +121,13 @@ export async function userStats(): Promise<UserStats> {
   };
 }
 
-export interface UserRow { uid: string; email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null; country: string | null }
+export interface UserRow { uid: string; email: string | null; name: string | null; photo: string | null; createdAt: string; lastSignInAt: string | null; desktopLastUsed: string | null; country: string | null; plan: string | null }
 export interface UserPage { total: number; page: number; pages: number; size: number; rows: UserRow[] }
+
+function activePlan(plan: unknown): string | null {
+  const p = plan as { id?: string; until?: string | null } | undefined;
+  return p?.id && (!p.until || Date.parse(p.until) > Date.now()) ? p.id : null;
+}
 
 /** One page of every registered account, newest first, optionally filtered by name or email. */
 export async function userPage({ page = 1, size = 20, q = "" }: { page?: number; size?: number; q?: string }): Promise<UserPage> {
@@ -141,6 +146,7 @@ export async function userPage({ page = 1, size = 20, q = "" }: { page?: number;
       lastSignInAt: u.lastLoginAt ? new Date(Number(u.lastLoginAt)).toISOString() : null,
       desktopLastUsed: (attributes(u).desktop as DesktopMark | undefined)?.last ?? null,
       country: typeof attributes(u).country === "string" ? (attributes(u).country as string) : null,
+      plan: activePlan(attributes(u).plan),
     })),
   };
 }
@@ -364,6 +370,49 @@ export async function markSeen(uid: string, seen: { country: string | null; agen
   if (!update.ok) throw new Error(`Couldn't update the account (${update.status})`);
 }
 
+/**
+ * Gives an account a paid plan, or takes it away, by hand. Stored on the account, where it
+ * reaches their sign-in token as a claim. It's for giving someone a plan
+ * for free. Paid plans are set by the Stripe webhook, and renewing would overwrite this.
+ */
+export async function setUserPlan(uid: string, plan: "lite" | "pro" | null, days = 30) {
+  await patchAccount(uid, plan ? { plan: { id: plan, until: new Date(Date.now() + days * DAY).toISOString() } } : { plan: null, subscription: null, stripeCheckout: null, stripeCustomerTest: null });
+}
+
+async function lookupAccount(uid: string): Promise<RestUser> {
+  const token = await googleAccessToken();
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}/accounts:lookup`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: [uid] }), cache: "no-store",
+  });
+  const user = ((await res.json().catch(() => ({}))).users ?? [])[0] as RestUser | undefined;
+  if (!res.ok || !user) throw new Error(`Couldn't read the account (${res.status})`);
+  return user;
+}
+
+export const accountAttributes = async (uid: string) => attributes(await lookupAccount(uid));
+
+/** Who an account belongs to, from Firebase itself. */
+export async function accountIdentity(uid: string) {
+  const u = await lookupAccount(uid);
+  return { email: u.email ?? null, name: u.displayName ?? null, emailVerified: !!u.emailVerified, disabled: !!u.disabled };
+}
+
+/** Change fields stored on an account, keeping the others. `null` removes a field. */
+export async function patchAccount(uid: string, patch: Record<string, unknown>) {
+  const next: Record<string, unknown> = { ...attributes(await lookupAccount(uid)) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete next[key];
+    else next[key] = value;
+  }
+  const token = await googleAccessToken();
+  const update = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}/accounts:update`, {
+    method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ localId: uid, customAttributes: JSON.stringify(next) }), cache: "no-store",
+  });
+  if (!update.ok) throw new Error(`Couldn't update the account (${update.status})`);
+}
+
 /** Registered accounts per country (ISO alpha-2), from the `country` markSeen records. */
 export async function accountsByCountry(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
@@ -443,6 +492,13 @@ export interface UserDetail {
   /** Country Vercel detected at the last signed-in visit. */
   country: string | null;
   desktop: DesktopMark | null;
+  plan: { id: string; until: string | null } | null;
+  /** Their Stripe record, if they've ever started buying. `testMode` marks a test purchase. */
+  billing: {
+    customer: string; testMode: boolean;
+    subscription: { id: string; status: string; interval: string | null; cancelsAtEnd: boolean; periodEnd: string | null } | null;
+    checkoutStarted: { plan: string; billing: string; at: string } | null;
+  } | null;
   /** From PostHog, for events sent while signed in (tagged with `uid` since this was added). */
   activity: {
     firstSeen: string | null; lastSeen: string | null; pageviews: number; activeDays: number;
@@ -501,6 +557,13 @@ export async function userDetail(uid: string): Promise<UserDetail | null> {
     createdAt: iso(u.createdAt), lastSignInAt: iso(u.lastLoginAt), lastActiveAt: u.lastRefreshAt ?? null,
     country: typeof attrs.country === "string" ? attrs.country : null,
     desktop: (attrs.desktop as DesktopMark | undefined) ?? null,
+    plan: (attrs.plan as { id: string; until: string | null } | undefined) ?? null,
+    billing: attrs.stripeCustomer || attrs.stripeCustomerTest ? {
+      customer: String(attrs.stripeCustomer ?? attrs.stripeCustomerTest),
+      testMode: !attrs.stripeCustomer,
+      subscription: (attrs.subscription as NonNullable<UserDetail["billing"]>["subscription"] | undefined) ?? null,
+      checkoutStarted: (attrs.stripeCheckout as NonNullable<UserDetail["billing"]>["checkoutStarted"] | undefined) ?? null,
+    } : null,
     activity,
   };
 }

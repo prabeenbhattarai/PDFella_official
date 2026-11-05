@@ -1,12 +1,28 @@
 "use client";
 
 import { useEffect } from "react";
+import type { User } from "firebase/auth";
 import { usePathname } from "next/navigation";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentIdToken, getFirebaseAuth, toAuthUser } from "@/lib/auth/firebase";
 import { loadGsi } from "@/lib/auth/gsi";
 import { SignInDialog, SKIPPED } from "./sign-in-dialog";
 import { SignOutOverlay } from "./sign-out-overlay";
+import { UpgradeDialog } from "@/components/plans/upgrade-dialog";
+import { claimTier, usePlan } from "@/lib/plans";
+
+const PLAN_RECHECK_MS = 15_000;
+
+/**
+ * A fresh token, so a plan bought or changed elsewhere shows up straight away. If the
+ * network fails, the token we already have decides, so a blip never locks out someone who paid.
+ */
+async function syncPlan(u: User) {
+  const result = await u.getIdTokenResult(true).catch(() => u.getIdTokenResult(false)).catch(() => null);
+  const { tier, loaded, setTier } = usePlan.getState();
+  if (result) setTier(claimTier(result.claims.plan));
+  else if (!loaded) setTier(tier);
+}
 
 const skipped = () => { try { return sessionStorage.getItem(SKIPPED) === "1"; } catch { return false; } };
 
@@ -37,11 +53,32 @@ export function AuthProvider() {
     let cancelled = false;
     Promise.all([getFirebaseAuth(), import("firebase/auth")]).then(([auth, { onAuthStateChanged }]) => {
       if (cancelled) return;
-      unsub = onAuthStateChanged(auth, (u) => useAuth.getState().setUser(u ? toAuthUser(u) : null));
+      unsub = onAuthStateChanged(auth, (u) => {
+        useAuth.getState().setUser(u ? toAuthUser(u) : null);
+        if (u) void syncPlan(u);
+        else usePlan.getState().setTier("free");
+      });
     }).catch(() => useAuth.getState().setUser(null));
     return () => {
       cancelled = true;
       unsub?.();
+    };
+  }, []);
+
+  // Back on this tab: someone who just paid in another tab or the browser gets their plan here too.
+  useEffect(() => {
+    if (!authEnabled) return;
+    let last = Date.now();
+    const recheck = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < PLAN_RECHECK_MS) return;
+      last = Date.now();
+      void getFirebaseAuth().then((auth) => { if (auth.currentUser) void syncPlan(auth.currentUser); });
+    };
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("focus", recheck);
+    return () => {
+      document.removeEventListener("visibilitychange", recheck);
+      window.removeEventListener("focus", recheck);
     };
   }, []);
 
@@ -63,5 +100,5 @@ export function AuthProvider() {
   // Everywhere else: One Tap, so returning visitors sign in with a single tap.
   useOneTap(authEnabled && ready && !user && !editor && !pathname.startsWith("/api/admin"));
 
-  return authEnabled ? <><SignInDialog /><SignOutOverlay /></> : null;
+  return <>{authEnabled && <><SignInDialog /><SignOutOverlay /></>}<UpgradeDialog /></>;
 }

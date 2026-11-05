@@ -3,6 +3,7 @@
  * redaction, encryption…). Flow: create job → PUT file to signed URL → start →
  * poll → download result from signed URL. See docs/API.md.
  */
+import { useAuth } from "../auth/store";
 import type { ServerOp } from "../tools";
 
 export interface JobStatus {
@@ -61,11 +62,19 @@ function putWithProgress(url: string, body: Blob, onProgress?: (pct: number) => 
   });
 }
 
+/** Lets the server apply a signed-in account's plan limits. */
+async function accountHeader(): Promise<Record<string, string>> {
+  if (!useAuth.getState().user) return {};
+  const { currentIdToken } = await import("../auth/firebase");
+  const token = await currentIdToken().catch(() => null);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function runJob(op: ServerOp, files: { name: string; blob: Blob }[], opts: RunJobOptions = {}): Promise<{ blob: Blob; name: string }> {
   if (!(await isProcessingAvailable())) throw new ProcessingUnavailableError();
   const create = await fetch("/api/jobs", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await accountHeader()) },
     body: JSON.stringify({ op, files: files.map((f) => ({ name: f.name, size: f.blob.size, type: f.blob.type })) }),
     signal: opts.signal,
   });

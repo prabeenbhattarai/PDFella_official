@@ -39,7 +39,8 @@ import { ToolHint } from "./tool-hint";
 import { armAsset, buildPdf, printDocument, readImage } from "./actions";
 import { getEditedPage, textRemovals } from "@/lib/pdf/page-preview";
 import { EditorTour, tourSeen } from "./editor-tour";
-import { requireAuth } from "@/lib/auth/store";
+import { cloudToolsEnabled } from "@/lib/tools";
+import { countDocument, requireDocumentAllowance, requirePlan, requireTabSlot } from "@/lib/plans";
 
 const ACCEPT = ["pdf", "png", "jpg", "webp", "docx", "xlsx", "pptx", "odt", "txt"] as const;
 
@@ -82,15 +83,17 @@ export function EditorApp() {
   const applyQuery = useCallback(() => {
     const t = params.get("tool") as ToolId | null;
     if (t && TOOL_DEFS[t]) {
-      if (t === "signature") { if (requireAuth("signature", () => setSigOpen(true))) setSigOpen(true); }
+      if (t === "signature") { if (requirePlan("signature", () => setSigOpen(true))) setSigOpen(true); }
       else if (t === "image") setTimeout(() => imageInput.current?.click(), 300);
       else useEditor.getState().setTool(t);
     }
   }, [params]);
 
   const open = useCallback(async (files: InputFile[]) => {
+    if (!requireDocumentAllowance()) return;
     try {
       await openInEditor(files);
+      countDocument(useEditor.getState().docKey);
       track("edit_started", { pages: useEditor.getState().pages.length, tool: params.get("tool") ?? "editor" });
       applyQuery();
     } catch (e) {
@@ -130,7 +133,10 @@ export function EditorApp() {
     void (async () => {
       for (const f of files) {
         while (useEditor.getState().status === "loading") await new Promise((r) => setTimeout(r, 200));
-        if (useEditor.getState().status === "ready") newTab();
+        if (useEditor.getState().status === "ready") {
+          if (!requireTabSlot(useTabs.getState().tabs.length)) return;
+          newTab();
+        }
         await open([f]);
       }
     })();
@@ -156,7 +162,7 @@ export function EditorApp() {
     if (t === "image") { imageInput.current?.click(); return; }
     if (t === "signature") {
       if (s.signatures.length) { s.setTool("signature"); return; }
-      if (requireAuth("signature", () => setSigOpen(true))) setSigOpen(true);
+      if (requirePlan("signature", () => setSigOpen(true))) setSigOpen(true);
       return;
     }
     s.setTool(t);
@@ -300,7 +306,7 @@ export function EditorApp() {
             <div className="w-full max-w-2xl space-y-4">
               <div className="text-center">
                 <h1 className="font-display text-4xl tracking-tight">Open a document to start editing</h1>
-                <p className="mt-2 text-ink-3">PDFs and images stay in your browser. Word, Excel and PowerPoint files are converted to PDF on our secure server first.</p>
+                <p className="mt-2 text-ink-3">{cloudToolsEnabled ? "PDFs and images stay in your browser. Word, Excel and PowerPoint files are converted to PDF on our secure server first." : "PDFs and images stay in your browser."}</p>
               </div>
               {restore && tabCount === 1 && (
                 <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/30 bg-accent-soft p-4" role="status">
@@ -315,7 +321,7 @@ export function EditorApp() {
               )}
               <Dropzone accepts={[...ACCEPT]} multiple onFiles={onDropFiles} size="hero" buttonLabel="Choose file" tool="editor" />
               <div className="text-center">
-                <Button variant="ghost" onClick={async () => { await newBlankDocument(); applyQuery(); }}><FilePlus2 /> Start with a blank page</Button>
+                <Button variant="ghost" onClick={async () => { if (!requireDocumentAllowance()) return; await newBlankDocument(); countDocument(useEditor.getState().docKey); applyQuery(); }}><FilePlus2 /> Start with a blank page</Button>
               </div>
             </div>
           )}
@@ -332,8 +338,8 @@ export function EditorApp() {
       <TabBar tip={tabTip} onTipClose={closeTabTip} />
       <TopBar
         onShare={() => setShareOpen(true)}
-        onCrop={() => setCropOpen(true)}
-        onBookmarks={() => setBookmarksOpen(true)}
+        onCrop={() => { if (requirePlan("crop", () => setCropOpen(true))) setCropOpen(true); }}
+        onBookmarks={() => { if (requirePlan("bookmarks", () => setBookmarksOpen(true))) setBookmarksOpen(true); }}
         onSave={() => setSaveOpen(true)}
         onNew={startNew}
         onOpen={() => openInput.current?.click()}
@@ -378,12 +384,15 @@ export function EditorApp() {
       </div>
 
       <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(e) => { onImage(e.target.files?.[0]); e.target.value = ""; }} aria-label="Choose image" />
-      <input ref={openInput} type="file" accept=".pdf,image/*,.docx,.xlsx,.pptx,.odt,.txt" className="sr-only" onChange={async (e) => {
+      <input ref={openInput} type="file" accept={cloudToolsEnabled ? ".pdf,image/*,.docx,.xlsx,.pptx,.odt,.txt" : ".pdf,image/*"} className="sr-only" onChange={async (e) => {
         const f = e.target.files?.[0];
         e.target.value = "";
         if (!f) return;
         // Another file opens beside this one, in its own tab.
-        if (useEditor.getState().status === "ready") newTab();
+        if (useEditor.getState().status === "ready") {
+          if (!requireTabSlot(useTabs.getState().tabs.length)) return;
+          newTab();
+        }
         open([{ name: f.name, type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) }]);
       }} aria-label="Open file" />
 

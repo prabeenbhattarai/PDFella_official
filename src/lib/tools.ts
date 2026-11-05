@@ -82,6 +82,10 @@ const serverFaq = [
   { q: "Do you use my documents for training?", a: "No. Documents are never used for training, analytics or any purpose other than producing your result." },
 ];
 
+/** The cloud tools need the processing server. Until it's connected, they say "Coming soon". */
+export const cloudToolsEnabled = process.env.NEXT_PUBLIC_CLOUD_TOOLS_ENABLED === "1";
+export const isComingSoon = (t: Pick<Tool, "engine" | "storage">) => !cloudToolsEnabled && t.engine === "server" && !t.storage;
+
 /** Share links need Firebase Storage, so the tool stays hidden until that's set up (see docs/SHARING.md). */
 export const shareEnabled = process.env.NEXT_PUBLIC_SHARE_ENABLED === "1";
 

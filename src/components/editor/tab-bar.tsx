@@ -5,20 +5,24 @@ import { FileText, Layers, Loader2, Plus, X } from "lucide-react";
 import { useEditor } from "@/lib/editor/store";
 import { closeTab, newTab, switchTab, useTabs, type Tab } from "@/lib/editor/tabs";
 import { cn } from "@/lib/utils";
+import { requireTabSlot, useIsLocked } from "@/lib/plans";
+import { ProCrown } from "@/components/plans/upgrade-dialog";
 
 /** Browser-style document tabs above the editor. */
 export function TabBar({ tip = false, onTipClose }: { tip?: boolean; onTipClose?: () => void }) {
   const tabs = useTabs((s) => s.tabs);
   const active = useTabs((s) => s.active);
   const plus = useRef<HTMLButtonElement>(null);
+  const locked = useIsLocked()("tabs");
 
   return (
     <>
     <div className="flex h-10 shrink-0 items-end gap-1 overflow-x-auto border-b border-border bg-surface-2 px-2 pt-1.5 [scrollbar-width:none]" role="tablist" aria-label="Open documents">
       {tabs.map((t) => <TabButton key={t.id} tab={t} active={t.id === active} />)}
-      <button ref={plus} data-tour="tabs" type="button" onClick={() => { onTipClose?.(); newTab(); }} aria-label="New tab" title="New tab"
-        className="mb-1 flex size-7 shrink-0 items-center justify-center rounded-md text-ink-3 hover:bg-surface hover:text-ink">
+      <button ref={plus} data-tour="tabs" type="button" onClick={() => { onTipClose?.(); if (requireTabSlot(useTabs.getState().tabs.length, () => newTab())) newTab(); }} aria-label="New tab" title="New tab"
+        className="relative mb-1 flex size-7 shrink-0 items-center justify-center rounded-md text-ink-3 hover:bg-surface hover:text-ink">
         <Plus className="size-4" />
+        {locked && <ProCrown className="-top-1 -right-1" />}
       </button>
     </div>
     {tip && onTipClose && <TabTip anchor={plus} onClose={onTipClose} />}
@@ -30,6 +34,7 @@ const TIP_MS = 12_000;
 
 /** Short pointer to the + button. It doesn't block the page and goes away by itself. */
 function TabTip({ anchor, onClose }: { anchor: React.RefObject<HTMLButtonElement | null>; onClose: () => void }) {
+  const locked = useIsLocked()("tabs");
   const [left, setLeft] = useState<number | null>(null);
   const WIDTH = 280;
   useLayoutEffect(() => {
@@ -48,7 +53,7 @@ function TabTip({ anchor, onClose }: { anchor: React.RefObject<HTMLButtonElement
         <Layers className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-semibold text-ink">Work in several tabs</p>
-          <p className="mt-0.5 text-[12.5px] text-ink-3">Click + to open another document in its own tab.</p>
+          <p className="mt-0.5 text-[12.5px] text-ink-3">Click + to open another document in its own tab.{locked ? " It's a paid feature." : ""}</p>
         </div>
         <button type="button" onClick={onClose} className="shrink-0 rounded-md px-2 py-1 text-[12.5px] font-medium text-accent hover:bg-surface-2">Got it</button>
       </div>

@@ -56,11 +56,24 @@ test("PDF to text", async ({ page }) => {
   expect(d.suggestedFilename()).toBe("sample.txt");
 });
 
-test("cloud tools explain when processing is unavailable or run when it is", async ({ page, request }) => {
-  const health = await (await request.get("/api/health")).json();
+test("tools that need the processing server are tagged Coming soon, and keep their pages", async ({ page }) => {
   await page.goto("/ocr-pdf");
-  if (!health.processing) await expect(page.getByText("processing service isn't connected")).toBeVisible();
-  else await expect(page.getByTestId("dropzone")).toBeVisible();
+  await expect(page.getByTestId("coming-soon")).toHaveText("Coming soon");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Related tools" })).toBeVisible();
+
+  await page.goto("/");
+  await expect(page.locator('#tools a[href="/word-to-pdf"]').filter({ hasText: "Coming soon" })).toBeVisible();
+  await expect(page.locator('#tools a[href="/merge-pdf"]').filter({ hasText: "Coming soon" })).toHaveCount(0);
+
+  // Tools that run in the browser have no tag.
+  await page.goto("/pdf-to-word");
+  await expect(page.getByTestId("coming-soon")).toHaveCount(0);
+  await expect(page.getByTestId("file-input").first()).toBeAttached();
+
+  // General uploads don't offer Office files.
+  await page.goto("/editor");
+  expect(await page.getByTestId("file-input").first().getAttribute("accept")).not.toContain("docx");
 });
 
 test("crop by dragging the box, on one page only", async ({ page }) => {

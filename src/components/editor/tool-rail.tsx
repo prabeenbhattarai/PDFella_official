@@ -3,7 +3,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRight } from "lucide-react";
-import { useEditor, type ToolId } from "@/lib/editor/store";
+import { PRO_TOOLS, useEditor, type ToolId } from "@/lib/editor/store";
+import { useIsLocked } from "@/lib/plans";
+import { ProBadge, ProCrown } from "@/components/plans/upgrade-dialog";
 import { cn } from "@/lib/utils";
 import { RAIL, TOOL_DEFS, type ToolDef } from "./tools";
 
@@ -100,6 +102,8 @@ export function ToolRail({ onPick, orientation }: Props) {
     if (open !== null) requestAnimationFrame(() => menuEl.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true }));
   }, [open]);
 
+  const isLocked = useIsLocked();
+  const toolLocked = (t: ToolId) => { const f = PRO_TOOLS[t]; return !!f && f !== "documents" && isLocked(f); };
   const vertical = orientation === "vertical";
   const side = vertical ? "right" : "top";
 
@@ -138,6 +142,7 @@ export function ToolRail({ onPick, orientation }: Props) {
             >
               <Icon className="size-[18px]" strokeWidth={1.8} aria-hidden />
               <span className="max-w-full truncate px-0.5 text-[10.5px] leading-tight font-medium">{caption}</span>
+              {(group ? group.tools.every(toolLocked) : toolLocked(id)) && <ProCrown className="top-1 left-1.5" />}
               {group && <ChevronRight className={cn("absolute size-2.5 opacity-60", vertical ? "top-1.5 right-1" : "top-1 right-1 -rotate-90")} aria-hidden />}
             </button>
 
@@ -155,6 +160,7 @@ export function ToolRail({ onPick, orientation }: Props) {
                 {group.tools.map((g) => {
                   const d = TOOL_DEFS[g];
                   const GI = d.icon;
+                  const proItem = toolLocked(g);
                   return (
                     <button key={g} role="menuitem" onClick={() => { setLast((l) => ({ ...l, [i]: g })); onPick(g); setOpen(null); }}
                       onKeyDown={(e) => {
@@ -167,7 +173,7 @@ export function ToolRail({ onPick, orientation }: Props) {
                       className={cn("flex w-full items-start gap-3 rounded-lg px-2.5 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2", tool === g && "bg-accent-soft")}>
                       <GI className={cn("mt-0.5 size-4 shrink-0", tool === g ? "text-accent" : "text-ink-2")} aria-hidden />
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-[13px] font-medium">{d.label}{d.key && <kbd className="ml-auto rounded border border-border px-1 text-[10px] text-ink-3">{d.key.toUpperCase()}</kbd>}</span>
+                        <span className="flex items-center gap-2 text-[13px] font-medium">{d.label}{proItem && <ProBadge label={PRO_TOOLS[g] === "redact" || PRO_TOOLS[g] === "forms" ? "PRO" : "LITE"} />}{d.key && <kbd className="ml-auto rounded border border-border px-1 text-[10px] text-ink-3">{d.key.toUpperCase()}</kbd>}</span>
                         <span className="block text-xs leading-snug text-ink-2">{d.hint}</span>
                       </span>
                     </button>

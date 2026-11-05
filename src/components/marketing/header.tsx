@@ -7,6 +7,8 @@ import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme";
 import { ToolIcon } from "@/components/ui/tool-icon";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
+import { isComingSoon } from "@/lib/tools";
 import { categories, getTool, tools, toolsIn, editorHref, type Tool, type ToolCategory } from "@/lib/tools";
 import { cn } from "@/lib/utils";
 import { AccountButton } from "@/components/auth/account-button";
@@ -35,7 +37,7 @@ function MenuItem({ t, onNavigate }: { t: Tool; onNavigate: () => void }) {
         <ToolIcon name={t.icon} className="size-[18px]" />
       </span>
       <span className="min-w-0">
-        <span className="block text-[14px] font-semibold text-ink">{t.name}</span>
+        <span className="flex items-center gap-1.5 text-[14px] font-semibold text-ink">{t.name}{isComingSoon(t) && <ComingSoonTag />}</span>
         <span className="block text-[13px] leading-snug text-ink-3">{t.blurb}</span>
       </span>
     </Link>
@@ -134,7 +136,7 @@ export function Header() {
                         <li key={t.slug}>
                           <Link href={`/${t.slug}`} onClick={close} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[14px] text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
                             <ToolIcon name={t.icon} className="size-4 shrink-0" />
-                            {t.name}
+                            {t.name}{isComingSoon(t) && <ComingSoonTag className="ml-auto" />}
                           </Link>
                         </li>
                       ))}
@@ -192,7 +194,7 @@ export function Header() {
               <div className="grid grid-cols-2 gap-1">
                 {toolsIn(c).map((t) => (
                   <Link key={t.slug} href={t.workspace.type === "editor" ? editorHref(t) : `/${t.slug}`} className="flex items-center gap-2.5 rounded-md px-2 py-2 text-[14px] font-medium text-ink-2 hover:bg-surface-2">
-                    <ToolIcon name={t.icon} className="size-4 shrink-0" /> {t.name}
+                    <ToolIcon name={t.icon} className="size-4 shrink-0" /> {t.name}{isComingSoon(t) && <ComingSoonTag className="ml-auto" />}
                   </Link>
                 ))}
               </div>

@@ -150,22 +150,27 @@ test("share, crop and bookmarks are on the editor's top bar", async ({ page }) =
   await page.getByLabel("Bookmark 1 title").fill("Third page");
   await page.getByLabel("Bookmark 1 page").fill("3");
   await page.getByRole("button", { name: "Save bookmarks" }).click();
-  await page.evaluate(() => {
-    const s = (window as unknown as { __pdfella: { store: { getState(): { pages: { id: string }[]; movePages(ids: string[], to: number): void } } } }).__pdfella.store.getState();
-    s.movePages([s.pages[2].id], 0);
-  });
+  // Deleting the first page moves the third page up, and the bookmark should follow it.
+  await page.getByRole("option", { name: /Page 1/ }).click();
+  await page.getByRole("button", { name: "Delete selected pages" }).click();
+  await expect(page.locator("[data-page-index]")).toHaveCount(2);
   const [d] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download", exact: true }).click()]);
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const doc = await pdfjs.getDocument({ data: (await downloadBytes(d)).slice(), isEvalSupported: false }).promise;
   const [outline] = await doc.getOutline();
   expect(outline.title).toBe("Third page");
-  expect(await doc.getPageIndex((outline.dest as unknown[])[0] as never)).toBe(0);
+  expect(await doc.getPageIndex((outline.dest as unknown[])[0] as never)).toBe(1);
   await doc.destroy();
 });
 
-test("crop in the editor keeps edits and can be undone", async ({ page }) => {
+test("crop in the editor changes the page, and Undo restores it", async ({ page }) => {
   await openInEditor(page);
-  const width = (await page.locator('[data-page-index="0"]').boundingBox())!.width;
+  // Pages fit the window's width, so the crop shows up as a change in shape.
+  const shape = async () => {
+    const box = (await page.locator('[data-page-index="0"]').boundingBox())!;
+    return box.height / box.width;
+  };
+  const before = await shape();
   await page.getByRole("button", { name: "Crop pages" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByTestId("crop-page").locator("img")).toBeVisible();
@@ -173,10 +178,8 @@ test("crop in the editor keeps edits and can be undone", async ({ page }) => {
   await dialog.getByRole("button", { name: "Crop PDF" }).click();
   await expect(page.getByText("Pages cropped")).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect.poll(shape).toBeCloseTo(before / 0.75, 1);
 
-  const pageWidth = () => page.evaluate(() => (window as unknown as { __pdfella: { store: { getState(): { pages: { width: number }[] } } } }).__pdfella.store.getState().pages[0].width);
-  const cropped = await pageWidth();
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect.poll(pageWidth).toBeCloseTo(cropped / 0.75, 0);
-  expect(width).toBeGreaterThan(0);
+  await expect.poll(shape).toBeCloseTo(before, 1);
 });

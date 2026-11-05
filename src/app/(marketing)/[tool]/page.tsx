@@ -4,15 +4,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  ArrowRight, Check, ChevronRight, Cloud, Laptop, AlertCircle, Lightbulb, Sparkles, Zap, ShieldCheck, Layers, Gauge, CalendarCheck,
-} from "lucide-react";
-import { tools, getTool, categories, accountBadge, accountNeed, type Tool } from "@/lib/tools";
+  ArrowRight, Check, ChevronRight, Cloud, Laptop, AlertCircle, Lightbulb, Sparkles, Zap, ShieldCheck, Layers, Gauge, CalendarCheck } from "lucide-react";
+import { tools, getTool, categories, accountBadge, accountNeed, isComingSoon, type Tool } from "@/lib/tools";
 import { getContent, CONTENT_UPDATED, type ToolContent } from "@/content/seo";
 import { brand } from "@/lib/brand";
 import { JOB_TTL_MINUTES } from "@/lib/limits";
 import { jpegSize, jsonLdScript, keyFacts, shotPath, toolJsonLd } from "@/lib/seo";
 import { ToolIcon } from "@/components/ui/tool-icon";
 import { ToolCard } from "@/components/marketing/tool-grid";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
 import { Faq } from "@/components/marketing/faq";
 import { InView } from "@/components/marketing/in-view";
 import { ToolWorkspace } from "@/components/tools/workspace";
@@ -107,7 +107,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
           <div className="app-only mx-auto -mt-4 mb-6 flex max-w-3xl items-center gap-3.5 text-left sm:-mt-8">
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl text-white" style={{ background: `var(--cat-${tool.category})` }}><ToolIcon name={tool.icon} className="size-5" /></span>
             <div className="min-w-0">
-              <p className="text-[22px] font-semibold tracking-tight">{tool.name}</p>
+              <p className="flex items-center gap-2 text-[22px] font-semibold tracking-tight">{tool.name}{isComingSoon(tool) && <ComingSoonTag />}</p>
               <p className="text-[14px] text-ink-3">{tool.blurb} · {tool.storage ?? (tool.engine === "browser" ? "Runs on this computer" : `Secure cloud, deleted within ${JOB_TTL_MINUTES} min`)}</p>
             </div>
           </div>
@@ -118,6 +118,7 @@ export default async function ToolPage({ params }: { params: Promise<{ tool: str
             <span className="text-ink-2" aria-current="page">{tool.name}</span>
           </nav>
           <span className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl text-white shadow-md" style={{ background: `var(--cat-${tool.category})` }}><ToolIcon name={tool.icon} className="size-7" /></span>
+          {isComingSoon(tool) && <div className="mb-4" data-testid="coming-soon"><ComingSoonTag className="px-3 py-1 text-[13px]" /></div>}
           <h1 className="font-display text-5xl leading-[1.02] tracking-tight sm:text-7xl">{c.h1}</h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-ink-2">{c.subtitle}</p>
           <ul className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm font-medium text-ink-2">

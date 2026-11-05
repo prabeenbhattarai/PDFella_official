@@ -1,3 +1,5 @@
+import { isComingSoon } from "@/lib/tools";
+import { ComingSoonTag } from "@/components/ui/coming-soon-tag";
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { brand } from "@/lib/brand";
@@ -18,7 +20,7 @@ export function Footer() {
             <p className="mb-3 text-sm font-semibold">{categories[c].name}</p>
             <ul className="space-y-2 text-sm font-medium text-ink-2">
               {toolsIn(c).slice(0, 6).map((t) => (
-                <li key={t.slug}><Link href={`/${t.slug}`} className="hover:text-ink">{t.name}</Link></li>
+                <li key={t.slug}><Link href={`/${t.slug}`} className="hover:text-ink">{t.name}</Link>{isComingSoon(t) && <ComingSoonTag className="ml-1.5" />}</li>
               ))}
             </ul>
           </div>
@@ -29,6 +31,7 @@ export function Footer() {
           <p>© {new Date().getFullYear()} {brand.name}. All rights reserved.</p>
           <nav className="flex gap-5" aria-label="Legal">
             <Link href="/pdf-converter" className="hover:text-ink">PDF converter</Link>
+            {process.env.NEXT_PUBLIC_PLANS_ENABLED === "1" && <Link href="/pricing" className="hover:text-ink">Pricing</Link>}
             <Link href="/developers" className="hover:text-ink">API</Link>
             <Link href="/privacy" className="hover:text-ink">Privacy</Link>
             <Link href="/security" className="hover:text-ink">Security</Link>
