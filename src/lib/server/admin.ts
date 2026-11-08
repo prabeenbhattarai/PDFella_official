@@ -1,4 +1,5 @@
 import "server-only";
+import { cdnDownloads } from "./download-count";
 import { SignJWT } from "jose";
 import { bearer, PROJECT_ID, serviceAccountKey, TokenError, verifyIdToken } from "./firebase-auth";
 
@@ -286,7 +287,7 @@ export async function desktopUsage(): Promise<DesktopUsage> {
   return { d1, d7, d30 };
 }
 
-// ───────── desktop downloads (GitHub releases)
+// ───────── desktop downloads (GitHub releases, then our CDN)
 
 const RELEASES_REPO = "prabeenbhattarai/PDFella_official";
 
@@ -298,26 +299,39 @@ export interface DownloadStats {
 }
 
 /**
- * Installer downloads, all time, from GitHub's per-file download counts (public,
- * no key needed; GITHUB_TOKEN only raises the rate limit). Updater archives
- * (.tar.gz) aren't installs, so they're left out.
+ * Installer downloads, all time: GitHub's per-file counts from before the move to the
+ * CDN, plus the downloads counted by /download/<os> since. Updater archives (.tar.gz)
+ * aren't installs, so they're left out. Either source can fail on its own.
  */
 export async function downloadStats(): Promise<DownloadStats> {
+  const [github, cdn] = await Promise.allSettled([githubDownloads(), cdnDownloads()]);
+  if (github.status === "rejected" && cdn.status === "rejected") throw github.reason;
+  const byTag = new Map<string, DownloadStats["releases"][number]>();
+  for (const r of github.status === "fulfilled" ? github.value : []) byTag.set(r.tag, { ...r });
+  for (const [version, c] of Object.entries(cdn.status === "fulfilled" ? cdn.value.byVersion : {})) {
+    const tag = `v${version}`;
+    const r = byTag.get(tag) ?? { tag, publishedAt: null, mac: 0, windows: 0 };
+    byTag.set(tag, { ...r, mac: r.mac + c.mac, windows: r.windows + c.windows });
+  }
+  const releases = [...byTag.values()].sort((a, b) => b.tag.localeCompare(a.tag, undefined, { numeric: true }));
+  const mac = releases.reduce((n, r) => n + r.mac, 0);
+  const windows = releases.reduce((n, r) => n + r.windows, 0);
+  return { total: mac + windows, mac, windows, releases };
+}
+
+async function githubDownloads(): Promise<DownloadStats["releases"]> {
   const res = await fetch(`https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=100`, {
     headers: { Accept: "application/vnd.github+json", ...(process.env.GITHUB_TOKEN ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}) },
     next: { revalidate: 300 },
   });
   if (!res.ok) throw new Error(res.status === 403 || res.status === 429 ? "GitHub rate limit reached. Try again in a few minutes, or set GITHUB_TOKEN." : `GitHub returned ${res.status}`);
   const list = (await res.json()) as { tag_name: string; published_at: string | null; assets: { name: string; download_count: number }[] }[];
-  const releases = list
+  return list
     .filter((r) => r.tag_name.startsWith("desktop-v"))
     .map((r) => {
       const sum = (ext: string) => r.assets.filter((a) => a.name.endsWith(ext)).reduce((n, a) => n + a.download_count, 0);
       return { tag: r.tag_name.replace(/^desktop-/, ""), publishedAt: r.published_at, mac: sum(".dmg"), windows: sum(".exe") };
     });
-  const mac = releases.reduce((n, r) => n + r.mac, 0);
-  const windows = releases.reduce((n, r) => n + r.windows, 0);
-  return { total: mac + windows, mac, windows, releases };
 }
 
 // ───────── who uses the desktop app

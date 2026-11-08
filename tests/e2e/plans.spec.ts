@@ -220,7 +220,7 @@ test.describe("the desktop app is free, with the same plans as the browser", () 
   test("the download is open on the free plan", async ({ page }) => {
     await actAs(page, "free");
     await page.goto("/download");
-    await expect(page.locator('a[href*="/releases/latest/download/"]').first()).toBeAttached();
+    await expect(page.locator('a[href^="/download/"]').first()).toBeAttached();
     await page.locator("#main").getByRole("link", { name: /Download for/ }).first().waitFor();
     await expect(page.getByTestId("upgrade-dialog")).toHaveCount(0);
   });
@@ -323,4 +323,13 @@ test.describe("first-time offer", () => {
     await page.waitForTimeout(10_000);
     await expect(page.getByTestId("welcome-survey")).toHaveCount(0);
   });
+});
+
+test("desktop downloads go through our own address", async ({ request }) => {
+  for (const os of ["mac", "windows"]) {
+    const res = await request.get(`/download/${os}`, { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers().location).toMatch(/^https:\/\/(7qiqke2nvm2dwa9q\.public\.blob\.vercel-storage\.com|github\.com)\//);
+  }
+  expect((await request.get("/download/linux", { maxRedirects: 0 })).status()).toBe(404);
 });

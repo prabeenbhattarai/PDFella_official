@@ -2,8 +2,9 @@
 # GitHub release. Run it by pushing a tag like `desktop-v0.1.0` (the version in
 # desktop/src-tauri/tauri.conf.json), or from the Actions tab.
 #
-# Each release also gets fixed-name copies, PDFella-mac.dmg and
-# PDFella-windows-setup.exe, so /download can link to releases/latest/download/….
+# Each installer is also uploaded to Vercel Blob (the CDN behind /download/mac and
+# /download/windows) when the BLOB_READ_WRITE_TOKEN secret is set, and the GitHub
+# release gets fixed-name copies, PDFella-mac.dmg and PDFella-windows-setup.exe, as a fallback.
 #
 # Optional signing secrets (without them the apps are unsigned and the OS shows a warning):
 #   macOS:   APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY,
@@ -100,3 +101,17 @@ jobs:
             cp desktop/src-tauri/target/release/bundle/nsis/*-setup.exe stable/PDFella-windows-setup.exe
           fi
           gh release upload "desktop-v$VERSION" stable/* --clobber
+
+      - name: Publish to the download CDN (Vercel Blob)
+        shell: bash
+        env:
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+        run: |
+          if [ -z "$BLOB_READ_WRITE_TOKEN" ]; then echo "BLOB_READ_WRITE_TOKEN isn't set; skipping."; exit 0; fi
+          VERSION=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          if [ "${{ runner.os }}" = "macOS" ]; then OS=mac; FILE=stable/PDFella-mac.dmg; else OS=windows; FILE=stable/PDFella-windows-setup.exe; fi
+          # Only the Blob client is needed, not the whole website's dependencies.
+          mkdir -p "$RUNNER_TEMP/publish"
+          cp scripts/publish-desktop.mjs "$RUNNER_TEMP/publish/"
+          (cd "$RUNNER_TEMP/publish" && npm init -y > /dev/null && npm install --no-audit --no-fund @vercel/blob@2.8.2 > /dev/null)
+          node "$RUNNER_TEMP/publish/publish-desktop.mjs" "$OS" "$GITHUB_WORKSPACE/$FILE" "$VERSION"

@@ -258,7 +258,7 @@ export function AdminDashboard() {
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {"error" in stats.downloads ? <div className="col-span-2"><Missing text={stats.downloads.error} /></div> : (
           <>
-            <Card icon={Download} label="Downloads · all time" value={dl ? fmt(dl.total) : "…"} hint="Installer downloads from the download page" tone="accent" />
+            <Card icon={Download} label="Downloads · all time" value={dl ? fmt(dl.total) : "…"} hint="GitHub before the move to the CDN, plus downloads through pdfella.com since" tone="accent" />
             <Card icon={AppleLogo} label="macOS downloads" value={dl ? fmt(dl.mac) : "…"} hint={dl && dl.total ? `${Math.round((dl.mac / dl.total) * 100)}% of downloads` : undefined} />
             <Card icon={WindowsLogo} label="Windows downloads" value={dl ? fmt(dl.windows) : "…"} hint={dl && dl.total ? `${Math.round((dl.windows / dl.total) * 100)}% of downloads` : undefined} />
           </>
