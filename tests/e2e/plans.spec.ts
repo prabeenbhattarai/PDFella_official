@@ -333,3 +333,14 @@ test("desktop downloads go through our own address", async ({ request }) => {
   }
   expect((await request.get("/download/linux", { maxRedirects: 0 })).status()).toBe(404);
 });
+
+test("the desktop app's sidebar links to pricing, not to the download page", async ({ browser }) => {
+  const page = await (await browser.newContext({ userAgent: "Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 Safari/605.1.15 PDFellaDesktop/0.1.5" })).newPage();
+  await page.goto("/");
+  const sidebar = page.getByRole("complementary", { name: "App navigation" });
+  await expect(sidebar.getByRole("link", { name: "Pricing" })).toBeVisible();
+  await expect(sidebar.locator('a[href^="/download"]')).toHaveCount(0);
+  await sidebar.getByRole("link", { name: "Pricing" }).click();
+  await expect(page).toHaveURL(/\/pricing$/);
+});
+

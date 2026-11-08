@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ChevronRight, Download, Home, PenLine, Search } from "lucide-react";
+import { ChevronRight, Gem, Home, PenLine, Search } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { ThemeToggle } from "@/components/ui/theme";
 import { ToolIcon } from "@/components/ui/tool-icon";
@@ -14,6 +14,9 @@ import { categories, getTool, tools, toolsIn, type ToolCategory } from "@/lib/to
 import { rememberTool } from "@/lib/desktop-app";
 import { cn } from "@/lib/utils";
 import { useInApp } from "./use-in-app";
+
+/** Same switch as the site header: the plans are live. */
+const PRICING_LIVE = !!process.env.NEXT_PUBLIC_PLANS_ENABLED;
 
 const ORDER: ToolCategory[] = ["edit", "organise", "convert", "optimise", "security", "forms"];
 
@@ -85,6 +88,7 @@ export function AppSidebar() {
             <div className="space-y-0.5 pt-1">
               <NavLink href="/" label="Home" active={pathname === "/"} icon={<Home className="size-4 shrink-0" />} />
               <NavLink href="/editor" label="Open editor" active={pathname.startsWith("/editor")} icon={<PenLine className="size-4 shrink-0" />} />
+              {PRICING_LIVE && <NavLink href="/pricing" label="Pricing" active={pathname === "/pricing"} icon={<Gem className="size-4 shrink-0" />} />}
             </div>
             <p className="px-2.5 pt-5 pb-1.5 text-[11.5px] font-semibold tracking-wide text-ink-3 uppercase">Tools</p>
             {ORDER.map((c) => {
@@ -107,7 +111,6 @@ export function AppSidebar() {
       <div className="flex shrink-0 items-center gap-1 border-t border-border p-2.5">
         <AccountButton signInClassName="inline-flex flex-1 justify-start" menuAbove compact />
         <span className="flex-1" />
-        <Link href="/download" aria-label="Desktop app" title="Desktop app" className="flex size-9 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-2 hover:text-ink"><Download className="size-4" /></Link>
         <ThemeToggle />
       </div>
     </aside>
