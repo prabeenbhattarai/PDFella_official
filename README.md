@@ -1,82 +1,136 @@
-# PDFella — online PDF editor & document tools
+<div align="center">
 
-> "PDFella" is a temporary name. Change it in `src/lib/brand.ts`.
+# PDFella
 
-An all-in-one PDF workspace: edit existing text, add text/images/shapes, highlight, draw, sign, redact, organise pages, fill and create forms, merge, split, compress, convert, OCR and protect — without an account.
+**Everything you need to work with PDFs.**
 
-**Local-first:** editing, signing, organising, watermarking, page numbers, image conversion, compression and password protect/unlock run entirely in the browser. Password-protected PDFs are unlocked automatically when opened (asking once for the password if the file needs one). Only tools that need server software (OCR, Office conversion, encryption, repair, optional cloud redaction/compression) upload a file, and those files are deleted automatically.
+Edit, sign, convert, compress, organise and protect your documents online, without installing anything.
 
-## Quick start
+[**Open PDFella →**](https://www.pdfella.com) &nbsp;·&nbsp; [Pricing](https://www.pdfella.com/pricing) &nbsp;·&nbsp; [Desktop app](https://www.pdfella.com/download)
 
-```bash
-npm install          # also copies the pdf.js worker into /public
-npm run dev          # http://localhost:3000
-```
+</div>
 
-That's enough for every browser-based tool. To enable the cloud tools locally, run the Python worker:
+---
 
-```bash
-cd services/worker && python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && cd ../..
-cp .env.example .env.local   # set APP_SECRET and WORKER_URL=http://127.0.0.1:8080
-npm run worker:dev
-```
+## What is PDFella?
 
-OCR, Office → PDF and Ghostscript compression also need system tools (`ocrmypdf`, `tesseract`, `soffice`, `gs`). The easiest way to get all of them is Docker:
+PDFella is a PDF editor and toolkit that runs in your browser. Open a PDF, change its text, sign it, fill in a form, or merge, compress and convert it. Most tools don't need an account.
 
-```bash
-docker compose up worker     # and set APP_URL=http://host.docker.internal:3000 in .env.local
-```
+**Your files stay on your device.** Every tool works inside your browser, so your documents aren't uploaded to our servers.
 
-## Scripts
+## Why people use it
 
-| Command | What it does |
+- **Edit the real text.** Double-click any sentence in a PDF to change it, instead of just typing over it.
+- **Private by design.** Documents are processed on your own device, not uploaded.
+- **Work on several files at once.** Open documents in tabs, like a web browser, and switch between them.
+- **Undo almost anything.** Go back through your last 100 changes.
+- **No watermarks.** What you download is exactly what you made.
+- **Use it anywhere.** In any modern browser, on a phone, or in the desktop app for Mac and Windows.
+
+## Features
+
+### ✏️ Edit
+| Tool | What it does |
 |---|---|
-| `npm run dev` / `build` / `start` | Next.js |
-| `npm run lint` · `npm run typecheck` | ESLint · TypeScript |
-| `npm test` | Unit tests (Vitest) — geometry, sniffing, content-stream editing, PDF ops, exporter |
-| `npm run test:e2e` | Playwright end-to-end tests (Chromium, Firefox, WebKit, mobile). `E2E_PROD=1` tests a production build |
-| `npm run worker:dev` · `npm run worker:test` | Run / test the Python worker |
-| `npm run fixtures` | Regenerate test PDFs in `tests/fixtures` |
+| Edit PDF | Change existing text, and add images, shapes and more |
+| Add Text | Type anywhere on a page |
+| Whiteout | Cover content with clean white boxes |
+| Highlight | Highlight, underline and strike through text |
+| Draw | Freehand pen, lines and arrows |
+| Annotate | Comments, sticky notes and stamps |
+| Add Images | Place, crop and rotate images |
+| Add Shapes | Rectangles, circles, arrows and clouds |
+| Sign PDF | Type, draw or upload your signature |
 
-## Project layout
+### 📑 Organise
+| Tool | What it does |
+|---|---|
+| Merge PDF | Combine files into one PDF |
+| Split PDF | Divide a PDF into separate files |
+| Crop PDF | Trim margins or cut pages to size |
+| Rotate PDF | Turn pages the right way up |
+| Rearrange Pages | Drag pages into a new order |
+| Delete Pages | Remove pages you don't need |
+| Extract Pages | Pull selected pages into a new PDF |
+| Page Numbers | Number your pages |
+| Header & Footer | Add text, dates and page numbers |
+| Edit Bookmarks | Add and edit a PDF's table of contents |
+| Edit File Details | Change or remove the title, author and more |
 
-```
-src/
-  app/
-    (marketing)/          landing page, /[tool] SEO pages (38, statically generated), /pdf-converter hub, privacy, security, terms
-    editor/               the PDF editor (client-only)
-    api/                  health, jobs (create/start/status/delete/callback), cleanup, blob (local dev storage)
-    sitemap.ts robots.ts
-  components/
-    ui/                   design system (button, dialog, toast, form controls, logo, theme)
-    marketing/            header, footer, hero upload, tool grid, FAQ
-    upload/               dropzone (drag & drop, validation, progress)
-    editor/               top bar, tool rail, thumbnails, canvas, page layer, object renderer, panels, dialogs
-    tools/                workspaces for each non-editor tool
-  lib/
-    editor/               document model, store (history), loading/autosave, search
-    pdf/                  pdf.js loader & cache, rendering, export, content-stream editing, ops, geometry
-    processing/           browser client for the job API
-    server/               config, tokens, storage / jobs / queue / rate-limit backends, op definitions
-    security/             content sniffing
-    tools.ts brand.ts limits.ts analytics.ts
-services/worker/          Python FastAPI worker (PyMuPDF, pikepdf, OCRmyPDF, LibreOffice, pdf2docx) + Dockerfile + tests
-infra/                    GCP setup & worker deploy scripts, storage lifecycle/CORS, Firestore TTL & rules
-tests/                    unit/ (Vitest), e2e/ (Playwright), fixtures/
-docs/                     ARCHITECTURE · API · SECURITY · STORAGE · DEPLOYMENT
-```
+### 🔄 Convert
+| Tool | What it does |
+|---|---|
+| PDF to Word | Turn a PDF into an editable Word document |
+| PDF to JPG / PNG | Save every page as an image |
+| PDF to Text | Get the plain text from every page |
+| JPG / PNG to PDF | Turn images into a PDF |
 
-## Documentation
+### ⚡ Optimise
+| Tool | What it does |
+|---|---|
+| Compress PDF | Make files smaller while keeping them readable |
+| Repair PDF | Recover damaged files |
+| Flatten PDF | Make form fields and annotations permanent |
 
-* [Architecture & technology choices](docs/ARCHITECTURE.md)
-* [API](docs/API.md)
-* [Security](docs/SECURITY.md)
-* [Storage & database structure](docs/STORAGE.md)
-* [Deployment](docs/DEPLOYMENT.md)
-* [SEO, AEO & GEO](docs/SEO.md)
+### 🔒 Security
+| Tool | What it does |
+|---|---|
+| Protect PDF | Add a password |
+| Unlock PDF | Remove passwords and restrictions |
+| Redact PDF | Permanently remove sensitive information |
+| Watermark | Stamp text or a logo on every page |
 
-## Adding a tool
+### 📝 Forms
+| Tool | What it does |
+|---|---|
+| Fill PDF | Complete interactive forms |
+| Create PDF Form | Add fillable fields to any PDF |
+| PDF Templates | Save a form or contract once and reuse it |
+| Fill from Spreadsheet | Create a filled-in PDF for every row of a spreadsheet |
 
-1. Add an entry to `src/lib/tools.ts` (slug, copy, accepted types, workspace, FAQ). The SEO page, sitemap entry, tool grid card and navigation appear automatically.
-2. Browser tool: implement the operation in `src/lib/pdf/ops.ts` and a workspace in `src/components/tools/`.
-   Server tool: add the op to `src/lib/server/ops.ts` (accepted types, output, parameter whitelist) and `services/worker/worker/ops.py`.
+### 🔜 Coming soon
+PDF to Excel, PDF to PowerPoint, Word to PDF, Excel to PDF, PowerPoint to PDF, and OCR to make scanned documents searchable.
+
+## Plans
+
+Start free, and upgrade when you need more.
+
+| | Free | Lite | Pro |
+|---|---|---|---|
+| **Price** | $0 | $4/month billed yearly, or $6 monthly | $8/month billed yearly, or $12 monthly |
+| Documents you can edit | 3 a day | 20 a day | Unlimited |
+| Tabs at once | 1 | 3 | Unlimited |
+| File size | Up to 100 MB | Up to 250 MB | Up to 500 MB |
+| Edit text, add text and images, highlight, draw | ✓ | ✓ | ✓ |
+| Merge, split, rotate, compress and convert | ✓ | ✓ | ✓ |
+| Desktop app for Mac and Windows | ✓ | ✓ | ✓ |
+| Signatures and stamps | | ✓ | ✓ |
+| More than 50 extra fonts | | ✓ | ✓ |
+| Add pages, and crop and bookmarks in the editor | | ✓ | ✓ |
+| Redaction | | | ✓ |
+| Build forms | | | ✓ |
+| Templates, and filling forms from a spreadsheet | | | ✓ |
+
+Prices are in US dollars. You can switch plans or cancel at any time from your account page. See the [pricing page](https://www.pdfella.com/pricing) for full details.
+
+## Desktop app
+
+PDFella is also available as a free desktop app for **Mac** and **Windows**. Download is free, and the same plans apply as on the website.
+
+[Download the desktop app →](https://www.pdfella.com/download)
+
+## Your privacy
+
+- **Documents aren't uploaded.** Editing, converting, compressing and every other tool runs in your browser.
+- **No account needed** for most tools. Signing in with Google is only needed for some features and for buying a plan.
+- **Payments are handled by Stripe.** We never see or store your card details.
+
+Read the full [Privacy Policy](https://www.pdfella.com/privacy) and [Terms](https://www.pdfella.com/terms).
+
+---
+
+<div align="center">
+
+**[www.pdfella.com](https://www.pdfella.com)**
+
+</div>
