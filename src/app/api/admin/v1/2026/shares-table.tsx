@@ -37,11 +37,11 @@ export function SharesTable({ refreshKey }: { refreshKey: number }) {
 
   return (
     <>
-      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Share links</h2>
+      <h2 className="mt-8 text-[15px] font-semibold text-ink">Share links</h2>
       {error && <p role="alert" className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-[13.5px] text-danger">{error}</p>}
       {data && !data.available && <p className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-[13.5px] text-ink-3">Share links aren&apos;t switched on. See docs/SHARING.md.</p>}
       {data?.available && (
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-border bg-surface">
+        <div className="mt-3 overflow-x-auto rounded-xl border border-border bg-surface">
           <table className="w-full min-w-[640px] text-left text-[13px]">
             <thead className="border-b border-border text-[12px] text-ink-3">
               <tr><th className="px-4 py-2.5 font-medium">Sender</th><th className="px-4 py-2.5 font-medium">Size</th><th className="px-4 py-2.5 font-medium">Created</th><th className="px-4 py-2.5 font-medium">Expires</th><th className="px-4 py-2.5 font-medium">Reports</th><th /></tr>

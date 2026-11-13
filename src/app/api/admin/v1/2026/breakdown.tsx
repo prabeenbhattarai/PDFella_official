@@ -97,7 +97,7 @@ function WorldMap({ values, metric, rows }: { values: Record<string, number>; me
 
 function Panel({ icon: Icon, title, children, className }: { icon: React.ComponentType<{ className?: string }>; title: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-2xl border border-border bg-surface p-4 sm:p-5", className)}>
+    <section className={cn("rounded-xl border border-border bg-surface p-4 sm:p-5", className)}>
       <h3 className="mb-3 flex items-center gap-2 text-[13px] font-medium text-ink-3"><Icon className="size-4" aria-hidden /> {title}</h3>
       {children}
     </section>
@@ -190,7 +190,7 @@ export function BreakdownView({ data, error, loading, label }: { data: Breakdown
   return (
     <>
       <div className="mt-10 flex flex-wrap items-end justify-between gap-3">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Countries · {metric === "accounts" ? "all time" : label} {loading && <Loader2 className="size-3.5 animate-spin" aria-label="Loading" />}</h2>
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold text-ink">Countries · {metric === "accounts" ? "all time" : label} {loading && <Loader2 className="size-3.5 animate-spin" aria-label="Loading" />}</h2>
         <div className="flex rounded-xl border border-border bg-surface p-1" role="tablist" aria-label="Map shows">
           {METRICS.map((m) => (
             <button key={m.id} role="tab" aria-selected={metric === m.id} onClick={() => setMetric(m.id)}
@@ -199,9 +199,9 @@ export function BreakdownView({ data, error, loading, label }: { data: Breakdown
         </div>
       </div>
       {error && <p role="alert" className="mt-3 rounded-xl bg-danger/10 px-4 py-3 text-[13.5px] text-danger">{error}</p>}
-      {data && "error" in data.traffic && metric !== "accounts" && <p className="mt-3 rounded-2xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.traffic.error}</p>}
+      {data && "error" in data.traffic && metric !== "accounts" && <p className="mt-3 rounded-xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.traffic.error}</p>}
       {traffic?.notes.map((n) => <p key={n} className="mt-3 rounded-xl border border-dashed border-border-strong bg-surface px-4 py-2.5 text-[12.5px] text-ink-3">Couldn&apos;t load {n}</p>)}
-      {data && "error" in data.accounts && metric === "accounts" && <p className="mt-3 rounded-2xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.accounts.error}</p>}
+      {data && "error" in data.accounts && metric === "accounts" && <p className="mt-3 rounded-xl border border-dashed border-border-strong bg-surface p-4 text-[13.5px] text-ink-3">{data.accounts.error}</p>}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <Panel icon={Globe2} title="Where people are">
@@ -229,7 +229,7 @@ export function BreakdownView({ data, error, loading, label }: { data: Breakdown
 
       {traffic && (
         <>
-          <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">Traffic · {label}</h2>
+          <h2 className="mt-8 text-[15px] font-semibold text-ink">Traffic · {label}</h2>
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <Panel icon={Link2} title="Where visitors came from">
               <Bars rows={traffic.sources} empty="No visits in this period." label={(k) => (k === "Direct" ? <span className="text-ink-2">Direct or bookmarked</span> : k)} />

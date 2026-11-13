@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Activity, CalendarClock, Crown, Globe2, Loader2, Monitor, X } from "lucide-react";
+import { Activity, CalendarClock, CreditCard, Crown, Globe2, Loader2, Monitor, X } from "lucide-react";
 import { currentIdToken } from "@/lib/auth/firebase";
 import type { UserDetail } from "@/lib/server/admin";
 import { REWARD_SOURCES, rewardLabel } from "@/lib/reward";
+import { UserPayments } from "./payments-section";
 
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "—");
 const region = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch { return null; } })();
@@ -149,6 +150,12 @@ export function UserDrawerView({ user, error, onClose, onChanged }: { user: User
             </Section>
 
             <PlanSection uid={user.uid} plan={user.plan} billing={user.billing} reward={user.reward} onChanged={onChanged} />
+
+            {user.billing && (
+              <Section icon={CreditCard} title="Payments">
+                <UserPayments uid={user.uid} />
+              </Section>
+            )}
 
             {user.desktop && (
               <Section icon={Monitor} title="Desktop app">

@@ -27,10 +27,10 @@ export function FeedbackTable({ refreshKey }: { refreshKey: number }) {
   const total = Object.values(counts ?? {}).reduce((a, b) => a + b, 0);
   return (
     <>
-      <h2 className="mt-10 text-[13px] font-semibold tracking-wide text-ink-3 uppercase">How new users found us</h2>
+      <h2 className="mt-8 text-[15px] font-semibold text-ink">How new users found us</h2>
       {error && <p className="mt-3 rounded-xl bg-surface-2 px-4 py-3 text-[13.5px] text-ink-3">{error}</p>}
       {counts && (
-        <ul className="mt-3 divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ul className="mt-3 divide-y divide-border rounded-xl border border-border bg-surface">
           {total === 0 && <li className="px-4 py-4 text-center text-[13.5px] text-ink-3">No answers yet.</li>}
           {total > 0 && REWARD_SOURCES.map((s) => (
             <li key={s.id} className="flex items-center justify-between gap-4 px-4 py-2.5 text-[13.5px]">
