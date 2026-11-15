@@ -18,7 +18,7 @@ import { jsonLdScript, siteJsonLd } from "@/lib/seo";
 import { JOB_TTL_MINUTES, limitsFor } from "@/lib/limits";
 
 const faq = [
-  { q: `What is ${brand.name}?`, a: `${brand.name} (also written "${brand.alternateNames[0]}") is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
+  { q: `What is ${brand.name}?`, a: `${brand.name} is a free online PDF editor. It edits the existing text in your PDFs and lets you sign, highlight, redact, merge, split, compress and convert documents right in your browser, with no watermark and no sign-up for most tools.` },
   { q: `Is ${brand.name} free to use?`, a: `${plansOn ? "Yes, for everyday PDF work, with no watermark and no account." : "Yes. Every tool is free with generous limits, and most work without an account."} ${EXTRAS_NOTE}${cloudToolsEnabled ? " Heavier cloud processing (OCR, Office conversion) has a daily allowance." : ""}` },
   { q: "Do I need to create an account?", a: plansOn ? "Not for the free tools. Drop a file and start working. Buying a plan needs a one-click Google sign-in, so your plan stays on your account." : `Not for most tools. Drop a file and start working. ${EXTRAS_NOTE}` },
   { q: "Are my files uploaded to your servers?", a: `Editing, organising, signing, PDF → Word, compression, protect/unlock and most conversions run entirely in your browser, so the file never leaves your device. ${cloudToolsEnabled ? `Tools marked "Secure cloud" (OCR, Office → PDF) upload the file to private, temporary storage and delete it within ${JOB_TTL_MINUTES} minutes.` : "OCR and Office conversions are coming soon."}` },

@@ -15,7 +15,7 @@ export function GET() {
   const lines = [
     `# ${brand.name}`,
     "",
-    `> ${brand.name} (also written "${brand.alternateNames.join('", "')}") is a free online PDF editor and toolkit. It edits existing PDF text, signs, annotates, merges, splits, compresses, converts (PDF to Word, JPG to PDF and more), runs OCR and protects PDFs. There is no watermark, and most tools need no account (a free Google sign-in unlocks signatures, stamps, adding pages and font styles in the editor). Most tools run entirely in the browser so files are never uploaded; cloud tools delete files within ${JOB_TTL_MINUTES} minutes.`,
+    `> ${brand.name} is a free online PDF editor and toolkit. It edits existing PDF text, signs, annotates, merges, splits, compresses, converts (PDF to Word, JPG to PDF and more), runs OCR and protects PDFs. There is no watermark, and most tools need no account (a free Google sign-in unlocks signatures, stamps, adding pages and font styles in the editor). Most tools run entirely in the browser so files are never uploaded; cloud tools delete files within ${JOB_TTL_MINUTES} minutes.`,
     "",
     "Key facts:",
     `- Price: free, no watermark. Most tools need no account; signatures, stamps, adding pages and font styles in the editor need a free Google sign-in`,
