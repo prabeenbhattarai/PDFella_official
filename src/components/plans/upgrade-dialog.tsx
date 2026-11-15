@@ -10,6 +10,7 @@ import { DOCUMENTS_PER_DAY, documentsLabel, LITE_TABS } from "@/lib/plan-limits"
 import { isDesktopApp } from "@/lib/auth/desktop";
 import { PRICES } from "@/lib/pricing";
 import { billingEnabled } from "@/lib/billing-client";
+import { PayNowButton, pausedMessage } from "./paused-notice";
 
 const COPY: Record<Exclude<PlanFeature, "documents">, { title: string; body: string }> = {
   tabs: { title: "Work in several tabs", body: "Open documents side by side, each in its own tab, and copy between them." },
@@ -36,7 +37,22 @@ export function UpgradeDialog() {
   const upgrade = usePlan((s) => s.upgrade);
   const close = usePlan((s) => s.closeUpgrade);
   const signedIn = useAuth((s) => !!s.user);
+  const paused = usePlan((s) => s.paused);
   if (!upgrade) return null;
+  if (paused) {
+    // A paying customer whose renewal failed: paying gets everything back, so don't sell them a plan.
+    return (
+      <Dialog open onClose={close} title="Your subscription is paused" description={pausedMessage(paused.plan)}>
+        <div data-testid="upgrade-dialog" data-feature={upgrade.feature} data-paused="true">
+          <p className="text-[14px] text-ink-2">Pay the outstanding amount and everything in your plan unlocks straight away. Free tools keep working in the meantime.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <PayNowButton size="lg" className="flex-1" />
+            <Button size="lg" variant="ghost" onClick={close}>Not now</Button>
+          </div>
+        </div>
+      </Dialog>
+    );
+  }
   const target = planToOffer(upgrade.feature);
   const plan = PLAN[target];
   const copy = upgrade.feature === "documents"

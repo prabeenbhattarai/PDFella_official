@@ -150,7 +150,7 @@ describe("cancelling", () => {
 });
 
 describe("failed renewals", () => {
-  it("keep the plan while Stripe retries, and end it if the subscription is cancelled", async () => {
+  it("pause the plan until it's paid, and end it if the subscription is cancelled", async () => {
     const { sub, clock, customer, start } = await setup(PRICE.liteMonthly);
     const bad = await stripe.paymentMethods.attach("pm_card_chargeCustomerFail", { customer: customer.id });
     await stripe.customers.update(customer.id, { invoice_settings: { default_payment_method: bad.id } });
@@ -158,9 +158,7 @@ describe("failed renewals", () => {
     await advance(clock.id, start + 32 * DAY);
     const failing = await get(sub.id);
     expect(failing.status).toBe("past_due");
-    const decision = plan(failing);
-    expect(decision).toMatchObject({ kind: "set", plan: "lite" });
-    if (decision.kind === "set") expect(Date.parse(decision.until) / 1000).toBeGreaterThan(start + 32 * DAY);
+    expect(plan(failing)).toEqual({ kind: "paused", plan: "lite" });
 
     const ended = await stripe.subscriptions.cancel(sub.id);
     expect(plan(ended)).toEqual({ kind: "remove" });

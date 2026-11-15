@@ -102,6 +102,8 @@ export async function syncSubscription(subscriptionId: string, knownUid?: string
   const customer = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
   await patchAccount(uid, {
     plan: decision.kind === "set" ? { id: decision.plan, until: decision.until } : null,
+    // Read by the site to say the subscription is paused and offer to pay.
+    billingPaused: decision.kind === "paused" ? { plan: decision.plan } : null,
     [customerField()]: customer,
     subscription: subscriptionRecord(sub as never),
     stripeCheckout: null,

@@ -2,7 +2,7 @@
 
 import { authEnabled, requireAuth } from "./auth/store";
 import { usePlan } from "./plans";
-import { claimTier } from "./plan-claim";
+import { claimTier, pausedClaim } from "./plan-claim";
 
 /** Buttons fall back to emailing us until Stripe is set up. */
 export const billingEnabled = process.env.NEXT_PUBLIC_BILLING_ENABLED === "1";
@@ -32,6 +32,11 @@ export function startCheckout(plan: "lite" | "pro", billing: "yearly" | "monthly
   return Promise.resolve();
 }
 
+/** A paused subscription: Stripe's page for the unpaid invoice. */
+export async function payNow() {
+  location.href = await postWithToken("/api/billing/pay");
+}
+
 export async function openBillingPortal() {
   location.href = await postWithToken("/api/billing/portal");
 }
@@ -46,6 +51,7 @@ export async function waitForPlan(attempts = 10, delayMs = 2000): Promise<boolea
     const tier = claimTier(result?.claims.plan);
     if (tier !== "free") {
       usePlan.getState().setTier(tier);
+      usePlan.getState().setPaused(pausedClaim(result?.claims.billingPaused));
       return true;
     }
     await new Promise((r) => setTimeout(r, delayMs));

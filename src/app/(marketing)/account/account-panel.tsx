@@ -12,6 +12,7 @@ import { rewardLabel } from "@/lib/reward";
 import { PRICES } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import type { SubscriptionView } from "@/lib/server/billing-plan";
+import { PayNowButton } from "@/components/plans/paused-notice";
 import { CancelDialog, CancelZone, DowngradeDialog, SorryDialog, UpgradeConsentDialog } from "./cancel-zone";
 
 type Billing = "monthly" | "yearly";
@@ -121,6 +122,7 @@ export function AccountPanel() {
 
   const row = (k: string, v: React.ReactNode) => <div className="flex justify-between gap-4 py-2.5 text-[14.5px]"><dt className="text-ink-3">{k}</dt><dd className="text-right font-medium text-ink">{v}</dd></div>;
   const ending = sub?.cancelsAtEnd;
+  const paused = sub?.status === "past_due" || sub?.status === "unpaid";
 
   return (
     <>
@@ -138,8 +140,12 @@ export function AccountPanel() {
 
       {sub === undefined && !error && <div className="mt-6 flex justify-center text-ink-3"><Loader2 className="size-5 animate-spin" aria-label="Loading" /></div>}
 
-      {sub?.status === "past_due" && (
-        <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl bg-warn/10 px-4 py-3 text-[14px] text-ink-2"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" /> Your last payment didn&apos;t go through. We&apos;ll try again over the next few days, and you keep your plan in the meantime. Update your card to avoid losing it.</p>
+      {paused && (
+        <div role="alert" className="mt-4 rounded-xl border border-warn/40 bg-warn-soft px-4 py-3" data-testid="account-paused">
+          <p className="flex items-center gap-2 text-[14.5px] font-semibold text-ink"><AlertTriangle className="size-4 shrink-0 text-warn" /> Your subscription is paused</p>
+          <p className="mt-1 text-[14px] text-ink-2">Your last payment didn&apos;t go through, so your {NAMES[sub.plan ?? tier]} features are locked. Pay now to unlock them straight away. We&apos;ll also keep trying your card over the next few days, and if it still can&apos;t be paid, your subscription ends.</p>
+          <PayNowButton className="mt-3" />
+        </div>
       )}
 
       {sub?.pending && !ending && (
@@ -159,13 +165,13 @@ export function AccountPanel() {
       {sub && (
         <div className={card}>
           <h2 className="text-[16px] font-semibold tracking-tight">Change plan</h2>
-          <p className="mt-1 text-[13.5px] text-ink-3">{ending ? "Your subscription is cancelled, so its plan can't be changed." : "Moving up starts now, and you pay the difference. Moving down starts when your paid period ends, so you keep what you've paid for."}</p>
+          <p className="mt-1 text-[13.5px] text-ink-3">{paused ? "Pay the outstanding amount first, then you can change plan." : ending ? "Your subscription is cancelled, so its plan can't be changed." : "Moving up starts now, and you pay the difference. Moving down starts when your paid period ends, so you keep what you've paid for."}</p>
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
             {OPTIONS.map((o) => {
               const current = o.plan === sub.plan && o.billing === sub.billing;
               return (
                 <li key={`${o.plan}-${o.billing}`}>
-                  <button type="button" disabled={current || !!busy || !!ending} onClick={() => void review(o)} data-testid={`switch-${o.plan}-${o.billing}`}
+                  <button type="button" disabled={current || !!busy || !!ending || paused} onClick={() => void review(o)} data-testid={`switch-${o.plan}-${o.billing}`}
                     className={cn("flex w-full items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left text-[14px] transition", current ? "border-accent bg-accent-soft" : "border-border hover:border-border-strong hover:bg-surface-2 disabled:opacity-60")}>
                     <span className="font-semibold text-ink">{NAME[o.plan]} {o.billing}</span>
                     <span className="text-ink-2">{current ? "Your plan" : priceLine(o)}</span>

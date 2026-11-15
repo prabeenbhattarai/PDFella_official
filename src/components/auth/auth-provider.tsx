@@ -9,7 +9,8 @@ import { loadGsi } from "@/lib/auth/gsi";
 import { SignInDialog, SKIPPED } from "./sign-in-dialog";
 import { SignOutOverlay } from "./sign-out-overlay";
 import { UpgradeDialog } from "@/components/plans/upgrade-dialog";
-import { activeReward, claimTier, usePlan } from "@/lib/plans";
+import { activeReward, claimTier, pausedClaim, usePlan } from "@/lib/plans";
+import { PausedBanner } from "@/components/plans/paused-notice";
 import { WelcomeSurvey } from "@/components/plans/welcome-survey";
 
 const PLAN_RECHECK_MS = 15_000;
@@ -24,6 +25,7 @@ async function syncPlan(u: User) {
   if (result) {
     setTier(claimTier(result.claims.plan));
     usePlan.getState().setReward(activeReward(result.claims.welcomeReward));
+    usePlan.getState().setPaused(pausedClaim(result.claims.billingPaused));
   }
   else if (!loaded) setTier(tier);
 }
@@ -63,6 +65,7 @@ export function AuthProvider() {
         else {
           usePlan.getState().setTier("free");
           usePlan.getState().setReward(null);
+          usePlan.getState().setPaused(null);
         }
       });
     }).catch(() => useAuth.getState().setUser(null));
@@ -107,5 +110,5 @@ export function AuthProvider() {
   // Everywhere else: One Tap, so returning visitors sign in with a single tap.
   useOneTap(authEnabled && ready && !user && !editor && !pathname.startsWith("/api/admin"));
 
-  return <>{authEnabled && <><SignInDialog /><SignOutOverlay /></>}<UpgradeDialog /><WelcomeSurvey /></>;
+  return <>{authEnabled && <><SignInDialog /><SignOutOverlay /></>}<UpgradeDialog /><WelcomeSurvey /><PausedBanner /></>;
 }

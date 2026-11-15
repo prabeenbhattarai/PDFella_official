@@ -46,7 +46,7 @@ Do all of this in **test mode** first, then repeat it in live mode.
 - **Moving up** (Lite to Pro, or monthly to yearly) starts straight away and charges the difference to the saved card, with no Stripe payment page. A popup shows the exact amount and says this, and the customer has to type `upgrade` to confirm. If the card is declined, the plan stays as it was.
 - **Moving down** (Pro to Lite, or yearly to monthly) starts when the paid period ends. A popup explains this, and the customer has to type `downgrade` to confirm. They keep what they paid for until then, and can change their mind.
 - **Cancelling** stops at the end of the paid period. The customer has to type `cancel` to confirm. It can be undone for 5 minutes (`UNDO_CANCEL_MINUTES`), with a countdown on the page and the limit enforced on the server. After that they keep the plan until it ends, then can buy a new one. Plans can't be switched while cancelled.
-- **Failed renewals:** Stripe retries the card and the plan stays on while it does. When the retries run out, Stripe cancels the subscription and the plan is removed.
+- **Failed renewals:** the subscription is **paused** (Stripe status `past_due` or `unpaid`). Paid features lock, and the site shows "Your subscription is paused" with **Pay now**, which opens Stripe's page for the unpaid invoice (`/api/billing/pay`). Once it's paid, the webhook turns the plan back on. Stripe also retries the card meanwhile; when the retries run out, it cancels the subscription. Plan changes wait until it's paid.
 - **Card and invoices** open Stripe's customer portal, which only handles those.
 
 `npm run test:stripe` runs all of this against Stripe's test mode with a simulated clock.

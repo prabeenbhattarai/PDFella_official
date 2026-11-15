@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canUndoCancel, isLiveStatus, planFromSubscription, subscriptionRecord, subscriptionView, undoDeadline } from "@/lib/server/billing-plan";
+import { canUndoCancel, isLiveStatus, isPausedStatus, planFromSubscription, subscriptionRecord, subscriptionView, undoDeadline } from "@/lib/server/billing-plan";
 
 const prices = { price_lite: "lite", price_pro: "pro" } as const;
 const sub = (status: string, price = "price_pro", period: { item?: number; top?: number } = { item: 1_800_000_000 }) => ({
@@ -17,10 +17,12 @@ describe("which plan a subscription gives", () => {
   it("reads the period from older Stripe API versions too", () => {
     expect(planFromSubscription(sub("active", "price_pro", { top: 1_700_000_000 }), prices)).toEqual({ kind: "set", plan: "pro", until: threeDaysAfter(1_700_000_000) });
   });
-  it("keeps the plan while Stripe retries a failed payment", () => {
-    expect(planFromSubscription(sub("past_due"), prices).kind).toBe("set");
+  it.each(["past_due", "unpaid"])("pauses the plan when a renewal wasn't paid (%s)", (status) => {
+    expect(planFromSubscription(sub(status), prices)).toEqual({ kind: "paused", plan: "pro" });
+    expect(isPausedStatus(status)).toBe(true);
   });
-  it.each(["canceled", "unpaid", "incomplete_expired", "paused"])("removes the plan when %s", (status) => {
+  it("an active subscription isn't paused", () => expect(isPausedStatus("active")).toBe(false));
+  it.each(["canceled", "incomplete_expired", "paused"])("removes the plan when %s", (status) => {
     expect(planFromSubscription(sub(status), prices)).toEqual({ kind: "remove" });
   });
   it("never removes a plan because of an unknown price", () => {
@@ -29,8 +31,8 @@ describe("which plan a subscription gives", () => {
 });
 
 describe("what counts as already paying", () => {
-  it.each(["active", "trialing", "past_due"])("%s does, so nobody subscribes twice", (s) => expect(isLiveStatus(s)).toBe(true));
-  it.each(["canceled", "unpaid", "incomplete", "incomplete_expired", "paused"])("%s doesn't", (s) => expect(isLiveStatus(s)).toBe(false));
+  it.each(["active", "trialing", "past_due", "unpaid"])("%s does, so nobody subscribes twice", (s) => expect(isLiveStatus(s)).toBe(true));
+  it.each(["canceled", "incomplete", "incomplete_expired", "paused"])("%s doesn't", (s) => expect(isLiveStatus(s)).toBe(false));
 });
 
 describe("the record kept on the account", () => {
@@ -68,5 +70,15 @@ describe("getting a plan back after cancelling", () => {
   it("doesn't apply to a subscription that isn't cancelling", () => {
     expect(undoDeadline({ cancel_at_period_end: false, canceled_at: 1000, items: { data: [] } })).toBeNull();
     expect(canUndoCancel({ cancel_at_period_end: false, items: { data: [] } })).toBe(false);
+  });
+});
+
+describe("the paused claim the site reads", () => {
+  it("names the paused plan, and ignores anything else", async () => {
+    const { pausedClaim } = await import("@/lib/plan-claim");
+    expect(pausedClaim({ plan: "pro" })).toEqual({ plan: "pro" });
+    expect(pausedClaim({ plan: "lite" })).toEqual({ plan: "lite" });
+    expect(pausedClaim(null)).toBeNull();
+    expect(pausedClaim({ plan: "gold" })).toBeNull();
   });
 });

@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { requireAuth, useAuth, authEnabled, type LockedFeature } from "./auth/store";
 import { DOCUMENTS_PER_DAY, LITE_TABS } from "./plan-limits";
-import { claimTier, type Tier } from "./plan-claim";
+import { claimTier, pausedClaim, type Tier } from "./plan-claim";
 import { activeReward, type RewardFeature } from "./reward";
 
 /**
@@ -11,7 +11,7 @@ import { activeReward, type RewardFeature } from "./reward";
  * doesn't change until people can actually buy Pro. Most of these locks run in the
  * browser, like the tools they guard; only cloud tasks are enforced on the server.
  */
-export { activeReward, claimTier, type Tier };
+export { activeReward, claimTier, pausedClaim, type Tier };
 
 const MODE = process.env.NEXT_PUBLIC_PLANS_ENABLED;
 const PREVIEW_KEY = "pdfella.plan-preview";
@@ -48,9 +48,12 @@ interface PlanState {
   loaded: boolean;
   /** A paid feature unlocked by the welcome survey, for a day. */
   reward: { feature: RewardFeature; until: string } | null;
+  /** A renewal payment failed, so this plan is paused until it's paid. */
+  paused: { plan: "lite" | "pro" } | null;
   upgrade: { feature: PlanFeature } | null;
   setTier(tier: Tier): void;
   setReward(reward: PlanState["reward"]): void;
+  setPaused(paused: PlanState["paused"]): void;
   openUpgrade(feature: PlanFeature): void;
   closeUpgrade(): void;
 }
@@ -59,9 +62,11 @@ export const usePlan = create<PlanState>((set) => ({
   tier: "free",
   loaded: false,
   reward: null,
+  paused: null,
   upgrade: null,
   setTier: (tier) => set({ tier, loaded: true }),
   setReward: (reward) => set({ reward }),
+  setPaused: (paused) => set({ paused }),
   openUpgrade: (feature) => set({ upgrade: { feature } }),
   closeUpgrade: () => set({ upgrade: null }),
 }));

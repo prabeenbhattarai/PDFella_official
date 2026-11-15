@@ -2,7 +2,7 @@ import Stripe from "stripe";
 import { json, fail, sameOrigin } from "@/lib/server/http";
 import { bearer, verifyIdToken } from "@/lib/server/firebase-auth";
 import { canSell, describeSubscription, liveSubscription, priceId, priceMap, stripe, syncSubscription } from "@/lib/server/billing";
-import { canUndoCancel } from "@/lib/server/billing-plan";
+import { canUndoCancel, isPausedStatus } from "@/lib/server/billing-plan";
 import { UNDO_CANCEL_MINUTES } from "@/lib/plan-limits";
 import { changeTiming, clearPendingChange, currentChoice, downgradeAtPeriodEnd, pendingChange, previewUpgrade, setCancelling, upgradeNow } from "@/lib/server/billing-switch";
 
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     if (action === "cancel" && sub.cancel_at_period_end) return fail(409, "already_cancelled", "This subscription is already cancelled.");
     // Changing plan would quietly undo a cancellation, so that has to be undone first.
     if ((action === "switch" || action === "keep-plan") && sub.cancel_at_period_end) return fail(409, "cancelled", "Your subscription is cancelled, so its plan can't be changed. If you've only just cancelled, get your plan back first.");
+    if (action === "switch" && isPausedStatus(sub.status)) return fail(409, "paused", "Your last payment didn't go through. Pay it first, then you can change plan.");
 
     if (action === "cancel" || action === "resume") await setCancelling(stripe(), sub, action === "cancel");
     else if (action === "keep-plan") await clearPendingChange(stripe(), sub);
