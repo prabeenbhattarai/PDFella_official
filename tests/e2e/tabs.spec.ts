@@ -45,6 +45,8 @@ test.describe("in the desktop app", () => {
     await expect(page.getByRole("tab").nth(1)).toHaveText(/second\.pdf/);
 
     await page.goto("/privacy");
+    // A drop before the page has finished loading isn't picked up.
+    await page.waitForFunction(() => !!window.__pdfellaFileDone);
     await dropOnWindow(page, "third.pdf");
     await page.waitForURL(/\/editor/);
     await expect(page.getByRole("tab").first()).toHaveText(/third\.pdf/);
