@@ -63,11 +63,9 @@ test.describe("free plan", () => {
     await expect(page.getByTestId("upgrade-dialog")).toHaveCount(0);
   });
 
-  test("the fourth document in a day asks to upgrade, and the first three don't", async ({ page }) => {
-    for (let i = 0; i < 3; i++) {
-      await openInEditor(page);
-      await expect(page.getByTestId("upgrade-dialog")).toHaveCount(0);
-    }
+  test("the second document in a day asks to upgrade, and the first doesn't", async ({ page }) => {
+    await openInEditor(page);
+    await expect(page.getByTestId("upgrade-dialog")).toHaveCount(0);
     await page.goto("/editor");
     await page.getByTestId("file-input").setInputFiles(fixturePath("sample.pdf"));
     await expect(page.getByTestId("upgrade-dialog")).toHaveAttribute("data-feature", "documents");

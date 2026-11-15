@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Crown, Feather, Loader2, Minus, Sparkles, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { brand } from "@/lib/brand";
-import { DOCUMENTS_PER_DAY, LITE_TABS } from "@/lib/plan-limits";
+import { DOCUMENTS_PER_DAY, documentsLabel, LITE_TABS } from "@/lib/plan-limits";
 import { PRICES } from "@/lib/pricing";
 import { billingEnabled, startCheckout, waitForPlan } from "@/lib/billing-client";
 import { useTier } from "@/lib/plans";
@@ -34,7 +34,7 @@ const PLANS: Plan[] = [
     price: { yearly: 0, monthly: 0 },
     cta: { label: "Start for free", href: "/editor" },
     features: [
-      `Edit ${DOCUMENTS_PER_DAY.free} documents a day`,
+      `Edit ${documentsLabel(DOCUMENTS_PER_DAY.free)} a day`,
       "Edit text, add text and images, highlight and draw",
       "Merge, split, rotate and compress",
       "Convert PDFs to Word, images and text",
@@ -49,7 +49,7 @@ const PLANS: Plan[] = [
     cta: { label: "Get Lite", href: WAITLIST("Lite") },
     includesFrom: "Everything in Free, plus",
     features: [
-      `Edit ${DOCUMENTS_PER_DAY.lite} documents a day`,
+      `Edit ${documentsLabel(DOCUMENTS_PER_DAY.lite)} a day`,
       `Up to ${LITE_TABS} tabs at once`,
       "Signatures and stamps, including your own",
       "More than 50 extra fonts",

@@ -6,7 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { authEnabled, useAuth } from "@/lib/auth/store";
 import { currentTier, planToOffer, usePlan, type PlanFeature } from "@/lib/plans";
-import { DOCUMENTS_PER_DAY, LITE_TABS } from "@/lib/plan-limits";
+import { DOCUMENTS_PER_DAY, documentsLabel, LITE_TABS } from "@/lib/plan-limits";
 import { isDesktopApp } from "@/lib/auth/desktop";
 import { PRICES } from "@/lib/pricing";
 import { billingEnabled } from "@/lib/billing-client";
@@ -27,7 +27,7 @@ const COPY: Record<Exclude<PlanFeature, "documents">, { title: string; body: str
 };
 
 const PLAN = {
-  lite: { name: "Lite", benefits: [`${DOCUMENTS_PER_DAY.lite} documents a day`, `Up to ${LITE_TABS} tabs`, "Signatures and stamps", "50+ extra fonts", "Add pages", "Crop and bookmarks in the editor"] },
+  lite: { name: "Lite", benefits: [`${documentsLabel(DOCUMENTS_PER_DAY.lite)} a day`, `Up to ${LITE_TABS} tabs`, "Signatures and stamps", "50+ extra fonts", "Add pages", "Crop and bookmarks in the editor"] },
   pro: { name: "Pro", benefits: ["Unlimited documents", "Unlimited tabs", "Everything in Lite", "Redaction and form building", "Templates", "Filling forms from a spreadsheet"] },
 };
 
@@ -40,7 +40,7 @@ export function UpgradeDialog() {
   const target = planToOffer(upgrade.feature);
   const plan = PLAN[target];
   const copy = upgrade.feature === "documents"
-    ? { title: "You've reached today's limit", body: `Your plan includes ${DOCUMENTS_PER_DAY[currentTier()]} documents a day. Upgrade to ${plan.name} for ${target === "pro" ? "unlimited documents" : `${DOCUMENTS_PER_DAY.lite} a day`}, or come back tomorrow.` }
+    ? { title: "You've reached today's limit", body: `Your plan includes ${documentsLabel(DOCUMENTS_PER_DAY[currentTier()])} a day. Upgrade to ${plan.name} for ${target === "pro" ? "unlimited documents" : `${DOCUMENTS_PER_DAY.lite} a day`}, or come back tomorrow.` }
     : { ...COPY[upgrade.feature], title: `${COPY[upgrade.feature].title} with ${plan.name}` };
   return (
     <Dialog open onClose={close} title={copy.title} description={copy.body}>

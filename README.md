@@ -98,7 +98,7 @@ Start free, and upgrade when you need more.
 | | Free | Lite | Pro |
 |---|---|---|---|
 | **Price** | $0 | $4/month billed yearly, or $6 monthly | $8/month billed yearly, or $12 monthly |
-| Documents you can edit | 3 a day | 20 a day | Unlimited |
+| Documents you can edit | 1 a day | 20 a day | Unlimited |
 | Tabs at once | 1 | 3 | Unlimited |
 | File size | Up to 100 MB | Up to 250 MB | Up to 500 MB |
 | Edit text, add text and images, highlight, draw | ✓ | ✓ | ✓ |

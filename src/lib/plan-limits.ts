@@ -1,5 +1,7 @@
 /** Documents the editor opens per day on each plan. */
-export const DOCUMENTS_PER_DAY = { free: 3, lite: 20, pro: Infinity };
+export const DOCUMENTS_PER_DAY = { free: 1, lite: 20, pro: Infinity };
+/** "1 document", "20 documents". */
+export const documentsLabel = (n: number) => `${n} document${n === 1 ? "" : "s"}`;
 /** Tabs open at once on Lite. Free has one, and Pro has no limit. */
 export const LITE_TABS = 3;
 /** How long after cancelling someone can get their subscription back. */

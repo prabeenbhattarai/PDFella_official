@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { shareEnabled } from "@/lib/tools";
-import { DOCUMENTS_PER_DAY, UNDO_CANCEL_MINUTES } from "@/lib/plan-limits";
+import { DOCUMENTS_PER_DAY, documentsLabel, UNDO_CANCEL_MINUTES } from "@/lib/plan-limits";
 import { Prose } from "@/components/marketing/prose";
 import { brand } from "@/lib/brand";
 import { REWARD_HOURS } from "@/lib/reward";
@@ -36,7 +36,7 @@ export default function TermsPage() {
       {plansOn && (
         <>
           <h2>Free plan</h2>
-          <p>The free plan includes the features listed on our <Link className="text-accent underline" href="/pricing">pricing page</Link>, including up to {DOCUMENTS_PER_DAY.free} documents a day in the editor. We may change what&apos;s free, and we&apos;ll update that page if we do.</p>
+          <p>The free plan includes the features listed on our <Link className="text-accent underline" href="/pricing">pricing page</Link>, including up to {documentsLabel(DOCUMENTS_PER_DAY.free)} a day in the editor. We may change what&apos;s free, and we&apos;ll update that page if we do.</p>
         </>
       )}
 

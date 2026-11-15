@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { BadgeCheck, Lock, RotateCcw, ShieldCheck } from "lucide-react";
 import { brand } from "@/lib/brand";
 import { Faq } from "@/components/marketing/faq";
-import { DOCUMENTS_PER_DAY, LITE_TABS } from "@/lib/plan-limits";
+import { DOCUMENTS_PER_DAY, documentsLabel, LITE_TABS } from "@/lib/plan-limits";
 import { PRICES } from "@/lib/pricing";
 import { PricingPlans } from "./pricing-plans";
 
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 const billingOn = process.env.NEXT_PUBLIC_BILLING_ENABLED === "1";
 
 const FAQ = [
-  { q: "What's free?", a: `Everyday tools, such as merge, split, compress and rotate, and converting PDFs to Word, images and text, plus the editor for ${DOCUMENTS_PER_DAY.free} documents a day: editing text, adding text and images, highlighting, drawing and the most common fonts. There's no watermark, and you don't need an account.` },
+  { q: "What's free?", a: `Everyday tools, such as merge, split, compress and rotate, and converting PDFs to Word, images and text, plus the editor for ${documentsLabel(DOCUMENTS_PER_DAY.free)} a day: editing text, adding text and images, highlighting, drawing and the most common fonts. There's no watermark, and you don't need an account.` },
   { q: "What's the difference between Lite and Pro?", a: `Lite adds what most people need: signatures, stamps, more than 50 extra fonts, adding pages, crop and bookmarks, up to ${LITE_TABS} tabs and ${DOCUMENTS_PER_DAY.lite} documents a day. Pro has everything in Lite with no document or tab limits, and adds redaction, form building, templates and filling forms from a spreadsheet.` },
   { q: "Can I change plans later?", a: "Yes. Start with Lite and move to Pro whenever you need more." },
   ...(billingOn ? [{ q: "Can I cancel anytime?", a: "Yes. You keep your plan until the end of the period you've paid for." }] : []),
